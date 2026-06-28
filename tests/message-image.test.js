@@ -8,7 +8,7 @@ describe('createMessageImageFilename', () => {
         element.dataset.turn = '7';
 
         expect(createMessageImageFilename(element, new Date(2026, 5, 14, 9, 8, 7))).toBe(
-            'Aquarium_Chat_7_user_20260614-090807.png'
+            'PWA-lily_7_user_20260614-090807.png'
         );
     });
 
@@ -17,7 +17,7 @@ describe('createMessageImageFilename', () => {
         element.className = 'message model';
 
         expect(createMessageImageFilename(element, new Date(2026, 0, 2, 3, 4, 5))).toBe(
-            'Aquarium_Chat_message_assistant_20260102-030405.png'
+            'PWA-lily_message_assistant_20260102-030405.png'
         );
     });
 });

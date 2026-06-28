@@ -139,12 +139,12 @@ function formatTimestamp(date) {
 export function createMessageImageFilename(messageElement, date = new Date()) {
     const role = messageElement.classList.contains('user') ? 'user' : 'assistant';
     const turn = messageElement.dataset.turn || 'message';
-    return `Aquarium_Chat_${turn}_${role}_${formatTimestamp(date)}.png`;
+    return `PWA-lily_${turn}_${role}_${formatTimestamp(date)}.png`;
 }
 
 export function createRangeImageFilename(date = new Date(), part = 0, total = 1) {
     const suffix = total > 1 ? `_${part}of${total}` : '';
-    return `Aquarium_Chat_range_${formatTimestamp(date)}${suffix}.png`;
+    return `PWA-lily_range_${formatTimestamp(date)}${suffix}.png`;
 }
 
 export async function messageElementToPngBlob(messageElement) {

@@ -1,4 +1,4 @@
-# Aquarium Chat（lily-lover-pwa カスタマイズ版）
+# PWA-lily（lily-lover-pwa カスタマイズ版）
 
 > [!NOTE]
 > これは [kinkan04/Gemini-PWA-Mk-II](https://github.com/kinkan04/Gemini-PWA-Mk-II)（本家：[ona-oni/geminipwa](https://github.com/ona-oni/geminipwa/)）を個人用にフォーク・改造したものです。
@@ -7,8 +7,8 @@
 
 | 項目 | 内容 |
 |------|------|
-| **アプリ名** | 「Aquarium Chat」に改名 |
-| **カラーテーマ** | ライトモードを水色・ブルーグリーン系「Aquarium」テーマに変更 |
+| **アプリ名** | 「PWA-lily」に改名 |
+| **カラーテーマ** | オフホワイト基調に、グレーとくすんだ薄ベージュを使った配色に変更 |
 | **マルチプロバイダー対応** | OpenAI・Anthropic・Groq・DeepSeek・xAI・Mistral・Sakana(fugu) のAPIをネイティブサポート。Anthropic使用時はプロンプトキャッシングを自動適用（システムプロンプト＋会話履歴を設定TTLでキャッシュ、大幅なコスト削減） |
 | **カスタムモデル登録** | 各プロバイダーに任意のモデルIDを追加可能 |
 | **推論モデル対応** | OpenAI o-series / DeepSeek-R1 / Anthropic Adaptive Thinking に最適化されたAPIパラメータを自動適用 |

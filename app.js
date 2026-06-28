@@ -3218,7 +3218,7 @@ Reason: [NGの場合の理由]`,
       }
       const displayTitle = titleText;
       elements.chatTitle.textContent = displayTitle;
-      document.title = `Aquarium Chat - ${titleText}`;
+      document.title = `PWA-lily - ${titleText}`;
     },
     // タイムスタンプをフォーマット
     formatDate(timestamp) {
@@ -9210,7 +9210,7 @@ ${knowledgeText}`;
             defaultModel: DEFAULT_OPENROUTER_MODEL,
             getApiKey: /* @__PURE__ */ __name(() => state.settings.openrouterApiKey, "getApiKey"),
             missingKeyMessage: "OpenRouter APIキーが設定されていません。",
-            extraHeaders: /* @__PURE__ */ __name(() => ({ "HTTP-Referer": window.location.origin, "X-Title": "Aquarium Chat" }), "extraHeaders"),
+            extraHeaders: /* @__PURE__ */ __name(() => ({ "HTTP-Referer": window.location.origin, "X-Title": "PWA-lily" }), "extraHeaders"),
             verboseError: true
           }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
         case "bedrock":
@@ -11064,12 +11064,12 @@ JPEG・PNG・GIF・WebP形式に変換してから添付してください。
   function createMessageImageFilename(messageElement, date = /* @__PURE__ */ new Date()) {
     const role = messageElement.classList.contains("user") ? "user" : "assistant";
     const turn = messageElement.dataset.turn || "message";
-    return `Aquarium_Chat_${turn}_${role}_${formatTimestamp(date)}.png`;
+    return `PWA-lily_${turn}_${role}_${formatTimestamp(date)}.png`;
   }
   __name(createMessageImageFilename, "createMessageImageFilename");
   function createRangeImageFilename(date = /* @__PURE__ */ new Date(), part = 0, total = 1) {
     const suffix = total > 1 ? `_${part}of${total}` : "";
-    return `Aquarium_Chat_range_${formatTimestamp(date)}${suffix}.png`;
+    return `PWA-lily_range_${formatTimestamp(date)}${suffix}.png`;
   }
   __name(createRangeImageFilename, "createRangeImageFilename");
   async function messageElementToPngBlob(messageElement) {
@@ -11279,7 +11279,7 @@ ${error.message}`);
         zip.file(createRangeImageFilename(now, idx + 1, blobs.length), blob);
       });
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      triggerDownload(zipBlob, `Aquarium_Chat_range_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}.zip`);
+      triggerDownload(zipBlob, `PWA-lily_range_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}.zip`);
     },
     /**
      * 画像Blobを受け取り、WebPに変換してimage_storeに保存し、新しいIDを返す

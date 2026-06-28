@@ -1,7 +1,7 @@
 {
     "name": "aquarium-chat",
     "version": "1.25.0",
-    "description": "Aquarium Chat PWA (lily-lover-pwa カスタマイズ版)",
+    "description": "PWA-lily (lily-lover-pwa カスタマイズ版)",
     "private": true,
     "type": "module",
     "scripts": {

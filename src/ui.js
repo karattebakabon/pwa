@@ -796,7 +796,7 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         // コロンを削除
         const displayTitle = titleText;
         elements.chatTitle.textContent = displayTitle;
-        document.title = `Aquarium Chat - ${titleText}`;
+        document.title = `PWA-lily - ${titleText}`;
     },
 
 

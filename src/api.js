@@ -1608,7 +1608,7 @@ export const apiUtils = {
                     defaultModel: DEFAULT_OPENROUTER_MODEL,
                     getApiKey: () => state.settings.openrouterApiKey,
                     missingKeyMessage: 'OpenRouter APIキーが設定されていません。',
-                    extraHeaders: () => ({ 'HTTP-Referer': window.location.origin, 'X-Title': 'Aquarium Chat' }),
+                    extraHeaders: () => ({ 'HTTP-Referer': window.location.origin, 'X-Title': 'PWA-lily' }),
                     verboseError: true
                 }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
             case 'bedrock':
