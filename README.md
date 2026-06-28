@@ -1,4 +1,4 @@
-# Aquarium Chat（sakanaai-lab カスタマイズ版）
+# Aquarium Chat（lily-lover-pwa カスタマイズ版）
 
 > [!NOTE]
 > これは [kinkan04/Gemini-PWA-Mk-II](https://github.com/kinkan04/Gemini-PWA-Mk-II)（本家：[ona-oni/geminipwa](https://github.com/ona-oni/geminipwa/)）を個人用にフォーク・改造したものです。
@@ -46,7 +46,7 @@
 
 # はじめて使う方へ
 
-1. **[アプリにアクセス](https://sakanaai-lab.github.io/pwa/)** してPWAを開きます。
+1. **[アプリにアクセス](https://lily-lover-pwa.github.io/pwa/)** してPWAを開きます。
 2. 画面右上の **歯車アイコン（設定）** を開きます。
 3. 使いたいAIのAPIキーを入力して **「設定を保存」** を押します。
 4. **「🔄 全プロバイダーの最新モデルを取得」** ボタンを押すと、設定したAPIキーに対応する最新モデルが自動で一覧に追加されます。
@@ -215,7 +215,7 @@ APIキーはお使いの**ブラウザのIndexedDB（端末内）にのみ保存
 
 [Dropbox App Console](https://www.dropbox.com/developers/apps) を開き、Redirect URIs に以下が登録されているか確認してください：
 ```
-https://sakanaai-lab.github.io/pwa/
+https://lily-lover-pwa.github.io/pwa/
 ```
 
 ## 新しい機能が反映されない
