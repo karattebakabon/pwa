@@ -1866,8 +1866,8 @@ ${relationship_context}`;
   var SAKANA_API_BASE_URL = "https://api.sakana.ai/v1/chat/completions";
   var DUPLICATE_SUFFIX = " (コピー)";
   var IMPORT_PREFIX = "(取込) ";
-  var LIGHT_THEME_COLOR = "#4a90e2";
-  var DARK_THEME_COLOR = "#007aff";
+  var LIGHT_THEME_COLOR = "#908675";
+  var DARK_THEME_COLOR = "#908675";
   var APP_VERSION = "1.25";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
@@ -3525,7 +3525,7 @@ Reason: [NGの場合の理由]`,
       document.body.classList.toggle("header-auto-hide", state.settings.headerAutoHide);
       elements.floatingPanelBehaviorSelect.value = state.settings.floatingPanelBehavior || "on-click";
       elements.dropboxSyncFrequencySelect.value = state.settings.dropboxSyncFrequency || "instant";
-      const defaultHeaderColor = state.settings.darkMode ? "#007aff" : "#7faab6";
+      const defaultHeaderColor = state.settings.darkMode ? "#908675" : "#908675";
       elements.headerColorInput.value = state.settings.headerColor || defaultHeaderColor;
       this.updateUserModelOptions();
       this.updateBackgroundSettingsUI();
@@ -5402,7 +5402,7 @@ Reason: [NGの場合の理由]`,
       elements.deleteBackgroundBtn.addEventListener("click", () => this.confirmDeleteBackgroundImage());
       elements.resetHeaderColorBtn.addEventListener("click", () => {
         state.settings.headerColor = "";
-        elements.headerColorInput.value = state.settings.darkMode ? "#007aff" : "#7faab6";
+        elements.headerColorInput.value = state.settings.darkMode ? "#908675" : "#908675";
         const event = new Event("input", { bubbles: true });
         elements.headerColorInput.dispatchEvent(event);
       });

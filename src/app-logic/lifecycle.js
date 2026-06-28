@@ -1255,7 +1255,7 @@ export const lifecycleMethods = {
         
         elements.resetHeaderColorBtn.addEventListener('click', () => {
             state.settings.headerColor = '';
-            elements.headerColorInput.value = state.settings.darkMode ? '#007aff' : '#7faab6';
+            elements.headerColorInput.value = state.settings.darkMode ? '#908675' : '#908675';
             const event = new Event('input', { bubbles: true });
             elements.headerColorInput.dispatchEvent(event);
         });

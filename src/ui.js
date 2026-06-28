@@ -1134,7 +1134,7 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         elements.floatingPanelBehaviorSelect.value = state.settings.floatingPanelBehavior || 'on-click';
         elements.dropboxSyncFrequencySelect.value = state.settings.dropboxSyncFrequency || 'instant';
 
-        const defaultHeaderColor = state.settings.darkMode ? '#007aff' : '#7faab6';
+        const defaultHeaderColor = state.settings.darkMode ? '#908675' : '#908675';
         elements.headerColorInput.value = state.settings.headerColor || defaultHeaderColor;
 
         this.updateUserModelOptions();
