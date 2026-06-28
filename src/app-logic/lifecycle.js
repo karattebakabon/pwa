@@ -1540,7 +1540,7 @@ export const lifecycleMethods = {
         // --- データ同期 (OAuth) ---
         elements.dropboxAuthBtn.addEventListener('click', async () => {
             try {
-                const APP_KEY = 'wed7l1d3azzuvlj';
+                const APP_KEY = 'nb8btcpivs6ba9u';
                 // 重要: このURIはDropbox App Consoleで設定したものと完全に一致させる必要があります
                 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
