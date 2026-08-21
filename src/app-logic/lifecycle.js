@@ -1,12 +1,13 @@
 // appLogic 機能モジュール: lifecycle（Phase 3 で app-logic.js から分割）。挙動は不変。
 import { registerServiceWorker, setupBroadcastChannel, updateMessageMaxWidthVar } from '../app.js';
-import { ANTHROPIC_MODELS, APP_VERSION, BEDROCK_MODELS, DEEPSEEK_MODELS, DEFAULT_ANTHROPIC_MODEL, DEFAULT_BEDROCK_MODEL, DEFAULT_DEEPSEEK_MODEL, DEFAULT_GROQ_MODEL, DEFAULT_MISTRAL_MODEL, DEFAULT_MODEL, DEFAULT_OPENAI_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_SAKANA_MODEL, DEFAULT_XAI_MODEL, DEFAULT_ZAI_MODEL, GEMINI_MODELS, GROQ_MODELS, IMAGE_STORE, MISTRAL_MODELS, OPENAI_MODELS, SAKANA_MODELS, SETTINGS_STORE, SWIPE_THRESHOLD, VERSION_ACK_STORAGE_KEY, VERSION_HISTORY, VERSION_LEGACY_STORAGE_KEY, VERSION_NOTICE_SESSION_KEY, XAI_MODELS, ZAI_MODELS, ZOOM_THRESHOLD } from '../constants.js';
+import { ANTHROPIC_MODELS, APP_VERSION, BEDROCK_MODELS, DEEPSEEK_MODELS, DEFAULT_ANTHROPIC_MODEL, DEFAULT_BEDROCK_MODEL, DEFAULT_DEEPSEEK_MODEL, DEFAULT_GROQ_MODEL, DEFAULT_MISTRAL_MODEL, DEFAULT_MODEL, DEFAULT_OPENAI_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_SAKANA_MODEL, DEFAULT_XAI_MODEL, DEFAULT_ZAI_MODEL, GEMINI_MODELS, GROQ_MODELS, HISTORY_SEARCH_DEBOUNCE_MS, IMAGE_STORE, MISTRAL_MODELS, OPENAI_MODELS, SAKANA_MODELS, SETTINGS_STORE, SWIPE_THRESHOLD, VERSION_ACK_STORAGE_KEY, VERSION_HISTORY, VERSION_LEGACY_STORAGE_KEY, VERSION_NOTICE_SESSION_KEY, XAI_MODELS, ZAI_MODELS, ZOOM_THRESHOLD } from '../constants.js';
 import { dbUtils } from '../db.js';
 import { DebugLogger } from '../debug-logger.js';
 import { elements } from '../dom-elements.js';
 import { state } from '../state.js';
 import { uiUtils } from '../ui.js';
 import { appLogic } from '../app-logic.js';
+import { resolveSelectedModel } from '../utils/model-select.js';
 
 export const lifecycleMethods = {
     _setupEventListenersCallCount: 0,
@@ -439,42 +440,44 @@ export const lifecycleMethods = {
             }
         }
 
-        // 現在の値が新しいリストに含まれているか確認（標準・手動追加・API取得モデルすべて）
-        const allAvailableValues = Array.from(modelSelect.querySelectorAll('option')).map(o => o.value);
-        if (allAvailableValues.includes(currentValue)) {
-            modelSelect.value = currentValue;
+        // プロバイダーごとのハードコード既定値（どれも使えないときの最後の受け皿）
+        let defaultModel;
+        if (provider === 'zai') {
+            defaultModel = DEFAULT_ZAI_MODEL;
+        } else if (provider === 'openrouter') {
+            defaultModel = DEFAULT_OPENROUTER_MODEL;
+        } else if (provider === 'bedrock') {
+            defaultModel = DEFAULT_BEDROCK_MODEL;
+        } else if (provider === 'openai') {
+            defaultModel = DEFAULT_OPENAI_MODEL;
+        } else if (provider === 'anthropic') {
+            defaultModel = DEFAULT_ANTHROPIC_MODEL;
+        } else if (provider === 'groq') {
+            defaultModel = DEFAULT_GROQ_MODEL;
+        } else if (provider === 'deepseek') {
+            defaultModel = DEFAULT_DEEPSEEK_MODEL;
+        } else if (provider === 'xai') {
+            defaultModel = DEFAULT_XAI_MODEL;
+        } else if (provider === 'mistral') {
+            defaultModel = DEFAULT_MISTRAL_MODEL;
+        } else if (provider === 'sakana') {
+            defaultModel = DEFAULT_SAKANA_MODEL;
         } else {
-            // プロバイダーごとに最後に選んだモデルを優先、なければハードコードのデフォルト
-            const lastUsed = state.settings.lastModelPerProvider?.[provider];
-            let defaultModel;
-            if (lastUsed && allAvailableValues.includes(lastUsed)) {
-                defaultModel = lastUsed;
-            } else if (provider === 'zai') {
-                defaultModel = DEFAULT_ZAI_MODEL;
-            } else if (provider === 'openrouter') {
-                defaultModel = DEFAULT_OPENROUTER_MODEL;
-            } else if (provider === 'bedrock') {
-                defaultModel = DEFAULT_BEDROCK_MODEL;
-            } else if (provider === 'openai') {
-                defaultModel = DEFAULT_OPENAI_MODEL;
-            } else if (provider === 'anthropic') {
-                defaultModel = DEFAULT_ANTHROPIC_MODEL;
-            } else if (provider === 'groq') {
-                defaultModel = DEFAULT_GROQ_MODEL;
-            } else if (provider === 'deepseek') {
-                defaultModel = DEFAULT_DEEPSEEK_MODEL;
-            } else if (provider === 'xai') {
-                defaultModel = DEFAULT_XAI_MODEL;
-            } else if (provider === 'mistral') {
-                defaultModel = DEFAULT_MISTRAL_MODEL;
-            } else if (provider === 'sakana') {
-                defaultModel = DEFAULT_SAKANA_MODEL;
-            } else {
-                defaultModel = DEFAULT_MODEL;
-            }
-            modelSelect.value = defaultModel;
-            state.settings.modelName = defaultModel;
+            defaultModel = DEFAULT_MODEL;
         }
+
+        // 保存済みのモデルを最優先で復元する。DOMの現在値を優先すると、再読み込み直後は
+        // index.html の静的な既定値のままなので、保存済みモデルが既定値で潰れてしまう。
+        const allAvailableValues = Array.from(modelSelect.querySelectorAll('option')).map(o => o.value);
+        const { model, isFallback } = resolveSelectedModel({
+            savedModel: (state.settings && state.settings.modelName) || currentValue,
+            availableValues: allAvailableValues,
+            lastUsed: state.settings.lastModelPerProvider?.[provider],
+            defaultModel,
+        });
+        modelSelect.value = model;
+        // 保存済みモデルが使えたときに書き戻すと、プロバイダー切替以外でも設定を触ることになる
+        if (isFallback) state.settings.modelName = model;
         
         // モデル警告メッセージを更新
         uiUtils.updateModelWarningMessage();
@@ -1106,6 +1109,17 @@ export const lifecycleMethods = {
                 onUpdate: () => {
                     uiUtils.updateModelWarningMessage();
                     this.updateApiUsageUI();
+                    // プロバイダーごとに最後に選んだモデルを記憶する（ヘッダーの切替と同じ扱い）。
+                    // ここで記録しないと、プロバイダーを往復したときに既定値へ戻ってしまう。
+                    // setupInstantSave の保存は onUpdate より前に終わっているため、ここで別途保存する。
+                    const currentProvider = state.settings.apiProvider;
+                    if (currentProvider && state.settings.modelName && state.activeProfile) {
+                        state.settings.lastModelPerProvider = state.settings.lastModelPerProvider || {};
+                        state.settings.lastModelPerProvider[currentProvider] = state.settings.modelName;
+                        state.activeProfile.settings = state.activeProfile.settings || {};
+                        state.activeProfile.settings.lastModelPerProvider = state.settings.lastModelPerProvider;
+                        dbUtils.updateProfile(state.activeProfile).catch(e => console.error('最後に選んだモデルの保存に失敗:', e));
+                    }
                     // ユーザー指定モデルを選択した場合、プロバイダーを自動切り替え
                     const sel = elements.modelNameSelect;
                     if (sel) {
@@ -1230,6 +1244,22 @@ export const lifecycleMethods = {
         // --- メモリ機能の個別イベントリスナー ---
         elements.memoryToggleBtn.addEventListener('click', () => this.toggleChatMemory());
         elements.manageMemoryBtn.addEventListener('click', () => this.openMemoryManagementDialog());
+        // 履歴の全文検索 (入力のたびに全チャットを走査するので少し待ってからにする)
+        let historySearchTimer = null;
+        elements.historySearchInput?.addEventListener('input', () => {
+            clearTimeout(historySearchTimer);
+            historySearchTimer = setTimeout(() => {
+                state.historySearchQuery = elements.historySearchInput.value;
+                uiUtils.renderHistoryList();
+            }, HISTORY_SEARCH_DEBOUNCE_MS);
+        });
+        elements.historySearchClearBtn?.addEventListener('click', () => {
+            clearTimeout(historySearchTimer);
+            elements.historySearchInput.value = '';
+            state.historySearchQuery = '';
+            uiUtils.renderHistoryList();
+            elements.historySearchInput.focus();
+        });
         elements.closeMemoryDialogBtn.addEventListener('click', () => elements.memoryManagementDialog.close());
         elements.addMemoryBtn.addEventListener('click', () => this.addMemoryItem());
         elements.deleteAllMemoryBtn.addEventListener('click', () => this.confirmDeleteAllMemory());
@@ -1472,6 +1502,16 @@ export const lifecycleMethods = {
 
         // --- Chat Stats ---
         elements.chatStatsBtn.addEventListener('click', () => this.showChatStats());
+        // 全チャット横断の使用量サマリー
+        elements.usageSummaryOpenBtn?.addEventListener('click', () => {
+            elements.chatStatsDialog.close();
+            this.showUsageSummary('thisMonth');
+        });
+        elements.usageRangeTabs?.forEach(tab => {
+            tab.addEventListener('click', () => this.showUsageSummary(tab.dataset.range));
+        });
+        // showCustomDialog はフォーカスを当てるだけなので、閉じる処理は自前で配線する
+        elements.usageSummaryCloseBtn?.addEventListener('click', () => elements.usageSummaryDialog.close());
         elements.chatStatsCloseBtn.addEventListener('click', () => elements.chatStatsDialog.close());
 
         // --- History Summary ---
