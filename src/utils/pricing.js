@@ -32,11 +32,13 @@ export const MODEL_PRICING = {
     // longCtx があるモデルは、プロンプトが threshold 以上のとき単価がそちらへ切り替わる。
 
     // xAI Grok — https://docs.x.ai/developers/pricing
-    'grok-4-6': { in: 2, out: 6, cr: 0.50, longCtx: { threshold: 200_000, in: 4, out: 12, cr: 1 } },
+    'grok-4-6': { in: 2,    out: 6,    cr: 0.50, longCtx: { threshold: 200_000, in: 4,    out: 12,   cr: 1    } },
+    'grok-4-5': { in: 2,    out: 6,    cr: 0.30, longCtx: { threshold: 200_000, in: 4,    out: 12,   cr: 0.60 } },
+    'grok-4-3': { in: 1.25, out: 2.50, cr: 0.20, longCtx: { threshold: 200_000, in: 2.50, out: 5,    cr: 0.40 } },
 
     // OpenAI — https://developers.openai.com/api/docs/pricing
     // 前方一致のため、より具体的なキーを先に置くこと（'gpt-5-mini' は 'gpt-5' より前）。
-    'gpt-5-6-sol':   { in: 5,    out: 30,   cr: 0.50 },
+    'gpt-5-6-sol':   { in: 4,    out: 20,   cr: 0.40 },  // 2026-08-21 値下げ（少なくとも11/21まで）
     'gpt-5-6-terra': { in: 2,    out: 12,   cr: 0.20 },
     'gpt-5-6-luna':  { in: 0.20, out: 1.20, cr: 0.02 },
     'gpt-5-5-pro':   { in: 30,   out: 180,  cr: 30 },    // キャッシュ割引の提供なし
@@ -68,6 +70,8 @@ export const MODEL_PRICING = {
     // 3.1 Pro も 200k 超で単価が上がる（入力2倍・出力1.5倍・キャッシュ2倍）
     'gemini-3-1-pro':        { in: 2,    out: 12,   cr: 0.20,  longCtx: { threshold: 200_000, in: 4, out: 18, cr: 0.40 } },
     'gemini-3-1-flash-lite': { in: 0.25, out: 1.50, cr: 0.025 },
+    // 3 Flash（プレビュー）。'gemini-3-7-flash' 等とは前方一致で衝突しない
+    'gemini-3-flash':        { in: 0.50, out: 3,    cr: 0.05 },
     // 2.5 Pro は 200k 超で入力2倍・出力1.5倍と倍率が異なるため、上位段の単価をそのまま持つ
     'gemini-2-5-pro':        { in: 1.25, out: 10,   cr: 0.125, longCtx: { threshold: 200_000, in: 2.50, out: 15, cr: 0.25 } },
     'gemini-2-5-flash-lite': { in: 0.10, out: 0.40, cr: 0.01 },
@@ -81,6 +85,16 @@ export const DEEPSEEK_V4_PRICE_CHANGE_AT = Date.UTC(2026, 7, 16, 16, 0, 0);
 export const MODEL_PRICING_BEFORE_V4_CHANGE = {
     'deepseek-v4-pro':   { in: 0.435, out: 0.87, cw5m: 0.435, cw1h: 0.435, cr: 0.003625, peakMul: 2 },
     'deepseek-v4-flash': { in: 0.14,  out: 0.28, cw5m: 0.14,  cw1h: 0.14,  cr: 0.0028,   peakMul: 2 },
+};
+
+// GPT-5.6 Sol の値下げ日（2026-08-21）。入力20%・出力33%の引き下げで、
+// OpenAI は「少なくとも 2026-11-21 まで」の特別価格としている（終了日は未定のため上限は設けない）。
+// 発表に時刻の明記が無いため UTC の 0時で切り替える。
+export const GPT_56_SOL_PRICE_CUT_AT = Date.UTC(2026, 7, 21, 0, 0, 0);
+
+// 値下げ前の GPT-5.6 Sol 料金。過去のメッセージを当時の単価で計算するために残してある。
+export const MODEL_PRICING_BEFORE_SOL_CUT = {
+    'gpt-5-6-sol': { in: 5, out: 30, cr: 0.50 },
 };
 
 // Gemini 3.7 / 3.6 Flash の期間限定割引の終了時刻。
@@ -128,6 +142,12 @@ export function getPricing(modelName, timestamp) {
     // 時刻を持たないのは改定前の古いデータなので、旧料金として扱う
     if (!timestamp || timestamp < DEEPSEEK_V4_PRICE_CHANGE_AT) {
         for (const [key, price] of Object.entries(MODEL_PRICING_BEFORE_V4_CHANGE)) {
+            if (m.startsWith(key)) return price;
+        }
+    }
+    // GPT-5.6 Sol の値下げ前のメッセージは当時の単価で計算する
+    if (!timestamp || timestamp < GPT_56_SOL_PRICE_CUT_AT) {
+        for (const [key, price] of Object.entries(MODEL_PRICING_BEFORE_SOL_CUT)) {
             if (m.startsWith(key)) return price;
         }
     }
