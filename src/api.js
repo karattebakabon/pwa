@@ -1,5 +1,5 @@
 // apiUtils（Phase 1 で app.js から抽出）。挙動は不変。
-import { DEEPSEEK_API_BASE_URL, DEFAULT_BEDROCK_MODEL, DEFAULT_BEDROCK_REGION, DEFAULT_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_SAKANA_MODEL, DEFAULT_ZAI_MODEL, GEMINI_API_BASE_URL, GROQ_API_BASE_URL, INITIAL_RETRY_DELAY, MISTRAL_API_BASE_URL, OPENROUTER_API_BASE_URL, SAKANA_API_BASE_URL, XAI_API_BASE_URL, ZAI_API_BASE_URL, getAnthropicEffortLevels } from './constants.js';
+import { DEEPSEEK_API_BASE_URL, DEFAULT_BEDROCK_MODEL, DEFAULT_BEDROCK_REGION, DEFAULT_MODEL, DEFAULT_OPENCODE_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_SAKANA_MODEL, DEFAULT_ZAI_MODEL, GEMINI_API_BASE_URL, GROQ_API_BASE_URL, INITIAL_RETRY_DELAY, MISTRAL_API_BASE_URL, OPENCODE_API_BASE_URL, OPENROUTER_API_BASE_URL, SAKANA_API_BASE_URL, XAI_API_BASE_URL, ZAI_API_BASE_URL, getAnthropicEffortLevels } from './constants.js';
 import { appLogic } from './app-logic.js';
 import { elements } from './dom-elements.js';
 import { interruptibleSleep } from './utils/format.js';
@@ -1642,6 +1642,18 @@ export const apiUtils = {
                 return await this.callOpenAICompatibleApi(state.settings.groqApiKey, GROQ_API_BASE_URL, 'Groq', messagesForApi, generationConfig, systemInstruction, signal);
             case 'deepseek':
                 return await this.callOpenAICompatibleApi(state.settings.deepseekApiKey, DEEPSEEK_API_BASE_URL, 'DeepSeek', messagesForApi, generationConfig, systemInstruction, signal);
+            case 'opencode':
+                // OpenCode Go: OpenAI互換（chat/completions）。ツール（Function Calling）対応のため
+                // ツール対応アダプタを使用する。NovelAI画像生成等も利用可能。
+                return await this._callOpenAICompatibleWithTools({
+                    label: 'OpenCode Go',
+                    baseUrl: OPENCODE_API_BASE_URL,
+                    defaultModel: DEFAULT_OPENCODE_MODEL,
+                    getApiKey: () => state.settings.opencodeApiKey,
+                    missingKeyMessage: 'OpenCode Go APIキーが設定されていません。',
+                    extraHeaders: () => ({}),
+                    verboseError: false
+                }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
             case 'xai':
                 return await this.callOpenAICompatibleApi(state.settings.xaiApiKey, XAI_API_BASE_URL, 'xAI', messagesForApi, generationConfig, systemInstruction, signal);
             case 'mistral':

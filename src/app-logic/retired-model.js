@@ -19,6 +19,7 @@ import {
     DEFAULT_ZAI_MODEL,
     DEFAULT_SAKANA_MODEL,
     DEFAULT_OPENROUTER_MODEL,
+    DEFAULT_OPENCODE_MODEL,
 } from '../constants.js';
 import { dbUtils } from '../db.js';
 import { state } from '../state.js';
@@ -36,6 +37,7 @@ const PROVIDER_DEFAULT_MODEL = {
     zai: DEFAULT_ZAI_MODEL,
     sakana: DEFAULT_SAKANA_MODEL,
     openrouter: DEFAULT_OPENROUTER_MODEL,
+    opencode: DEFAULT_OPENCODE_MODEL,
 };
 
 // エラーメッセージが「モデルが提供終了/存在しない」ことを示すか判定する。

@@ -288,6 +288,7 @@
                             <option value="zai">Z.ai</option>
                             <option value="bedrock">Amazon Bedrock</option>
                             <option value="sakana">Sakana (fugu)</option>
+                            <option value="opencode">OpenCode Go</option>
                         </select>
                         <div id="api-usage-container" class="api-usage-container hidden" style="margin-top:10px;">
                             <p id="api-usage-text" class="api-usage-text"></p>
@@ -395,6 +396,16 @@
                             </p>
                             <label for="deepseek-custom-models" style="margin-top: 15px;">▼ 追加モデル (カンマ区切り):</label>
                             <textarea id="deepseek-custom-models" placeholder="例: deepseek-chat"></textarea>
+                        </div>
+
+                        <div id="opencode-api-key-container" class="hidden">
+                            <label for="opencode-api-key">OpenCode Go APIキー:</label>
+                            <input type="password" autocomplete="new-password" id="opencode-api-key" placeholder="OpenCodeのAPIキーを入力" aria-label="OpenCode Go APIキー">
+                            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">
+                                ※ APIキーは <a href="https://opencode.ai" target="_blank" rel="noopener noreferrer">OpenCode</a> のサブスクリプションから取得できます。OpenAI互換（chat/completions）で全モデルが使えます。
+                            </p>
+                            <label for="opencode-custom-models" style="margin-top: 15px;">▼ 追加モデル (カンマ区切り):</label>
+                            <textarea id="opencode-custom-models" placeholder="例: big-pickle, nemotron-3-ultra-free"></textarea>
                         </div>
 
                         <div id="xai-api-key-container" class="hidden">
@@ -520,6 +531,11 @@
                                     <option value="deepseek-v4-pro">deepseek-v4-pro</option>
                                     <option value="deepseek-chat">deepseek-chat (V3)</option>
                                     <option value="deepseek-reasoner">deepseek-reasoner (R1)</option>
+                                </optgroup>
+                                <optgroup label="OpenCode Go (APIキー必要)">
+                                    <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+                                    <option value="minimax-m3">minimax-m3</option>
+                                    <option value="glm-5.2">glm-5.2</option>
                                 </optgroup>
                                 <optgroup label="ユーザー指定" id="thought-translation-user-models">
                                 </optgroup>
@@ -797,6 +813,11 @@
                             <option value="deepseek-v4-pro">deepseek-v4-pro</option>
                             <option value="deepseek-chat">deepseek-chat (V3)</option>
                             <option value="deepseek-reasoner">deepseek-reasoner (R1)</option>
+                        </optgroup>
+                        <optgroup label="OpenCode Go (APIキー必要)">
+                            <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+                            <option value="minimax-m3">minimax-m3</option>
+                            <option value="glm-5.2">glm-5.2</option>
                         </optgroup>
                         <optgroup label="Gemini 3系">
                             <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (軽量・安価)</option>

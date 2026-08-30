@@ -28,6 +28,7 @@ export const DEEPSEEK_API_BASE_URL = 'https://api.deepseek.com/chat/completions'
 export const XAI_API_BASE_URL = 'https://api.x.ai/v1/chat/completions';
 export const MISTRAL_API_BASE_URL = 'https://api.mistral.ai/v1/chat/completions';
 export const SAKANA_API_BASE_URL = 'https://api.sakana.ai/v1/chat/completions';
+export const OPENCODE_API_BASE_URL = 'https://opencode.ai/zen/go/v1/chat/completions';
 export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
@@ -157,11 +158,25 @@ export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 // - Effort 非対応（OFFのみ）: Haiku 4.5, Sonnet 4.5, Claude 3.x / 2.x
 export function getAnthropicEffortLevels(model) {
     if (!model) return null;
-    const full = ['claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-5', 'claude-fable-5', 'claude-mythos-5'];
+    const full = [
+        'claude-opus-5',
+        'claude-opus-4-8',
+        'claude-opus-4-7',
+        'claude-sonnet-5',
+        'claude-fable-5',
+        'claude-mythos-5',
+    ];
     if (full.some((p) => model.startsWith(p))) return ['', 'low', 'medium', 'high', 'xhigh', 'max'];
-    if (model.startsWith('claude-opus-4-6') || model.startsWith('claude-sonnet-4-6')) return ['', 'low', 'medium', 'high', 'max'];
+    if (model.startsWith('claude-opus-4-6') || model.startsWith('claude-sonnet-4-6'))
+        return ['', 'low', 'medium', 'high', 'max'];
     if (model.startsWith('claude-opus-4-5')) return ['', 'low', 'medium', 'high'];
-    if (model.startsWith('claude-haiku') || model.startsWith('claude-sonnet-4-5') || model.startsWith('claude-3') || model.startsWith('claude-2')) return [''];
+    if (
+        model.startsWith('claude-haiku') ||
+        model.startsWith('claude-sonnet-4-5') ||
+        model.startsWith('claude-3') ||
+        model.startsWith('claude-2')
+    )
+        return [''];
     return null;
 }
 
@@ -188,6 +203,28 @@ export const DEEPSEEK_MODELS = [
 ];
 export const DEFAULT_DEEPSEEK_MODEL = 'deepseek-chat';
 
+// OpenCode Go（サブスクリプション型ゲートウェイ）: OpenAI互換 chat/completions で主要モデルを一括利用可能。
+// モデルIDは https://opencode.ai/docs/zen の Model ID をそのまま使用する。全一覧は設定画面の
+// 「全プロバイダーの最新モデルを取得」で /v1/models から自動取得できる。
+export const OPENCODE_MODELS = [
+    { value: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
+    { value: 'gpt-5.5', label: 'GPT 5.5' },
+    { value: 'gpt-5.4', label: 'GPT 5.4' },
+    { value: 'gpt-5.4-mini', label: 'GPT 5.4 Mini' },
+    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+    { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+    { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+    { value: 'minimax-m3', label: 'MiniMax M3' },
+    { value: 'minimax-m2.7', label: 'MiniMax M2.7' },
+    { value: 'glm-5.2', label: 'GLM 5.2' },
+    { value: 'kimi-k2.7-code', label: 'Kimi K2.7 Code' },
+    { value: 'grok-4.6', label: 'Grok 4.6' },
+];
+export const DEFAULT_OPENCODE_MODEL = 'deepseek-v4-flash';
+
 export const XAI_MODELS = [
     { value: 'grok-4.6', label: 'Grok 4.6 (推奨)' },
     { value: 'grok-4.5', label: 'Grok 4.5' },
@@ -213,19 +250,19 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
-    '1.53': [
+    1.53: [
         'Gemini のセンシティブフィルター設定を1箇所にまとめました。これまで同じ内容が6箇所（チャット送信・思考プロセスの翻訳・要約/メモリ学習・タイトル生成・校正）にコピーされていて、片方だけ直すと食い違う状態でした。内部の整理なので、フィルターの効き方はこれまでと変わりません。',
         '設定内容もこれまでどおり、調整できる4カテゴリ（ハラスメント・ヘイト・性的表現・危険な行為）すべてを BLOCK_NONE にしています。つまり以前から実質フィルターオフのままです。',
         '※ 児童安全に関わる内容など、中核的な危害への保護は設定に関係なく常にブロックされます（API側で固定されており、変更できません）。',
     ],
-    '1.52': [
+    1.52: [
         '提供が終了したモデルをモデル一覧から取り除き、各社の現行モデルに入れ替えました。Gemini は 2.0 Flash / 2.0 Flash-Lite と旧プレビュー版を外し、3.6 / 3.5 Flash・3.5 Flash-Lite・3.1 Flash-Lite・3 Flash（プレビュー）を追加しています。',
         'Groq と xAI は既定モデル自体が提供終了していて、選び直さないと最初のメッセージでエラーになる状態でした。Groq は GPT-OSS 120B、xAI は Grok 4.6 を既定にし、現行モデルへ入れ替えています。Claude と Bedrock も 3系（3.5 Sonnet / 3 Opus など）を外し、Sonnet 5 / Opus 4.6 / Haiku 4.5 などを追加しました。',
         '設定に廃止モデルが保存されたままでも、送信時に後継モデルを案内するようになりました（自動で切り替わるのは後継がはっきりしているものだけで、それ以外は必ず確認します）。',
         '画像生成モデルの判定を名前の形（〜-image）で行うようにしました。Nano Banana の後継（gemini-3.1-flash-image など）を「追加モデル」に入れても画像生成として扱われます。',
         '※ Groq の Llama 3.3 70B / 3.1 8B は廃止予定日を過ぎていますが、まだ一覧に載っているため残しています（ラベルに「廃止予定」と表示）。',
     ],
-    '1.51': [
+    1.51: [
         'モデル一覧で「追加モデル」が標準モデルより前（一覧の中途半端な位置）に出ていたのを直しました。これからは 標準モデル → 追加モデル → API取得モデル の順に並びます。',
         '※ 表示位置が変わるだけで、選べるモデルや★お気に入りの並び（常に先頭）は変わりません。',
     ],
@@ -234,38 +271,38 @@ export const VERSION_HISTORY = {
         '値下げ前に送ったメッセージは、これまでどおり当時の単価で計算します。過去のチャットの推定コストが後から下がって見えることはありません。',
         '※ OpenAI は「少なくとも2026年11月21日まで」の特別価格としています。期間が終わって元の単価に戻った場合は、あらためて対応が必要です。',
     ],
-    '1.49': [
+    1.49: [
         'DeepSeek の週末オフピーク（2026年8月23日 0:00 北京時間から）に対応しました。北京時間の土日は終日オフピーク単価になるため、ⓘ の推定コストも週末はピーク倍率をかけずに計算します。平日はこれまでどおりピーク／オフピークの区分が適用されます。',
         '※ 曜日は北京時間で判定します（日本時間とは1時間ずれるため、日本の土曜1:00〜日曜23:59 が週末扱いになります）。改定前に送ったメッセージは当時の規則のまま計算するので、過去のコストが変わることはありません。',
     ],
-    '1.48': [
+    1.48: [
         'OpenRouterを選んでいるときだけ★お気に入りが効かず、チャット画面のモデル一覧に出てこない不具合を修正しました。OpenRouterは他と選択肢の作り方が違い、一覧を作り直すときに★のグループごと消えていたためです。',
         '※ OpenRouterのモデルを一覧に出すには、設定の「OpenRouter 追加モデル (カンマ区切り)」にモデルIDを書いてください（モデル数が多いため自動取得はしていません）。書いたモデルは★で先頭に固定できます。',
     ],
-    '1.47': [
+    1.47: [
         'OpenRouter経由のモデルで思考プロセスが表示されない問題を修正しました。OpenRouterは思考を「reasoning」という項目で返すのに、アプリが「reasoning_content」（DeepSeek系の名前）しか見ていなかったため捨てられていました。あわせて、OpenRouterには思考を返すよう明示的に要求するようにしました（「Include Thoughts」がONのとき）。',
         '思考の長さは、Gemini・Claudeと同じ「Thinking Budget」の値をそのまま使います（空欄なら指定なし）。',
     ],
-    '1.46': [
+    1.46: [
         'プロジェクト管理で下へスクロールすると、閉じる（✕）ボタンが画面外へ流れて押せなくなっていたのを修正しました。タイトルと✕を上部に固定し、中身だけがスクロールするようにしています。',
     ],
-    '1.45': [
+    1.45: [
         'PCの広い画面で、ダイアログの右側に大きな空白ができていた問題を修正しました。ブラウザ標準の <dialog> が持つ配置指定と噛み合わず、すべてのダイアログが「画面幅のちょうど半分」に引き伸ばされていたためです。中身の量に合わせた幅で表示されるようになりました。',
     ],
-    '1.44': [
+    1.44: [
         'プロジェクト管理の画面が崩れていたのを修正しました。この画面だけ他のダイアログと違うスタイルが当たっておらず、ブラウザ標準の見た目（黒い枠）のまま画面からはみ出し、スマホでは下の方が切れて見えない状態でした。',
         'ナレッジのファイルを削除するときに確認を出すようにしました。編集ボタンのすぐ隣にあって押し間違えやすく、しかも元に戻せないためです。',
     ],
-    '1.43': [
+    1.43: [
         '【重要】ページが再読み込みされると、選んでいたモデルが既定のモデル（Claude Sonnet 4.6 など）に勝手に変わってしまう不具合を修正しました。タイムアウトなどで再読み込みが起きるたびに発生していたため、気づかないまま別のモデルで会話が続き、想定より料金がかかることがありました。',
         '※ モデルが変わるとプロンプトキャッシュも切れるため、Anthropic利用時は再読み込みのたびに履歴全体が再課金されていました。この修正で解消されます。',
         'プロバイダーを切り替えて戻したときに、そのプロバイダーで最後に選んでいたモデルへ戻るようになりました（これまでは設定画面から選んだ分が記録されず、既定のモデルに戻っていました）。',
     ],
-    '1.42': [
+    1.42: [
         'Gemini 3.7 Flash に対応しました。モデル選択から選べます。2026年12月31日までは半額（入力$0.75／出力$3.75／キャッシュヒット$0.075、100万トークンあたり）で、2027年1月1日から通常単価（それぞれ2倍）に戻ります。ⓘ の推定コストは日付に応じて自動で切り替わります。',
         'Gemini 3.6 Flash の推定コストが実際の2倍になっていた問題を修正しました。3.6 Flash も 3.7 Flash と同じく2026年内は半額のため、割引を反映して計算します。',
     ],
-    '1.41': [
+    1.41: [
         '全チャットを横断した使用量サマリーを追加しました。ⓘ（会話の統計）の「全チャットの使用量」ボタンから開けます。今月／先月／過去30日／全期間で切り替えられ、推定コスト・メッセージ数・入出力トークンの合計と、モデル別の内訳が見られます。DeepSeekはピーク時間帯にかかった分も別途表示します。',
         '※ 端末内の履歴からの推定です。削除したチャットや、同期していない端末の分は含まれません。正確な請求額は各社の使用量ページ（同じくⓘから開けます）でご確認ください。',
         '※ 金額を計算できるのは料金表を持つモデル（Claude / GPT-5系・4.1系・o3系 / Gemini 3.x・2.5系 / DeepSeek / Grok 4.6）だけです。それ以外のモデルはトークン数のみ表示し、金額欄は「—」になります。',
@@ -280,24 +317,24 @@ export const VERSION_HISTORY = {
         '改定前に送ったメッセージは、これまでどおり旧料金で計算します。過去のチャットの推定コストが後から跳ね上がって見えることはありません。',
         '※ ピーク時間帯（日本時間 10:00-13:00 / 15:00-19:00 は2倍）は改定後も変わりません。',
     ],
-    '1.35': [
+    1.35: [
         '配色プリセットを追加。設定の「配色プリセット」から、藍墨・青磁・灰桜・墨・琥珀の5種類（各ライト/ダーク対応）にワンタップで切り替えられます。ClaudeDesignで作成したテンプレートを移植しました。',
     ],
-    '1.34': [
+    1.34: [
         '【重要】Dropbox同期で設定が巻き戻る不具合を修正。プロファイルのマージが「常にクラウド優先」だったため、ローカルで変更した設定（思考の深さ(Effort)など）が自動同期のたびに古い内容へ戻っていました。チャットやプロジェクトと同じく「更新が新しい方を優先」に変更しています。',
         '思考の深さ(Effort)を「OFF（思考なし）」にしていても、再読み込み後に設定画面上で「high」に戻って見える不具合を修正しました。',
         '※ 上記により、Anthropicのプロンプトキャッシュが設定の巻き戻りで無駄に切れることがなくなります（ページ再読み込み自体ではキャッシュは切れません）。',
     ],
-    '1.33': [
+    1.33: [
         '思考の深さ(Effort)を、選択中のClaudeモデルで使えるレベルだけ表示するように改善。xhighはOpus 4.7以降、Effort自体はOpus 4.6以降/Sonnet 4.6のみ対応で、非対応のモデルでは自動的に選べなくなり、注意書きも表示されます。非対応レベルが設定に残っていてもAPI送信時に対応レベルへ自動調整するため400エラーになりません（※Opus 4.8 は max も xhigh も使えます）。',
     ],
-    '1.32': [
+    1.32: [
         'Claude Opus 5 に対応。Anthropicのモデル一覧に「Claude Opus 5 / 4.8」を追加しました。',
         'Anthropic新世代モデル（Opus 4.7/4.8/5 等）で temperature が廃止され送ると400エラーになる問題に対応（該当モデルでは temperature を送信しないよう修正）。これまで Opus 4.7 選択時に失敗し得た不具合も解消。',
         '思考の深さ(Effort)に「xhigh（高品質・コーディング向け）」を追加。Opus 5 で選べる5段階（low/medium/high/xhigh/max）に対応しました。',
         'Opus 5 は思考がデフォルトONのため、Effort「OFF」を選んだときは明示的に思考を停止するよう修正（意図せず思考が走るのを防止）。',
     ],
-    '1.31': [
+    1.31: [
         'モデルの★お気に入りを追加。設定のモデル名の横の★ボタンで、よく使うモデルを登録できます。お気に入りはドロップダウンの先頭「★ お気に入り」グループに固定表示され、チャットヘッダーのモデル選択にも反映されるので素早く選べます（プロバイダーごとに表示）。',
     ],
     '1.30': [

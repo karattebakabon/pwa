@@ -888,6 +888,7 @@ window.dbUtils = dbUtils;
                     { key: 'deepseek', url: 'https://api.deepseek.com/v1/models',        apiKey: state.settings.deepseekApiKey },
                     { key: 'xai',      url: 'https://api.x.ai/v1/models',               apiKey: state.settings.xaiApiKey },
                     { key: 'mistral',  url: 'https://api.mistral.ai/v1/models',          apiKey: state.settings.mistralApiKey },
+                    { key: 'opencode', url: 'https://opencode.ai/zen/go/v1/models',       apiKey: state.settings.opencodeApiKey },
                 ];
                 for (const p of compatList) {
                     if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null);
@@ -957,7 +958,7 @@ window.dbUtils = dbUtils;
         if(apiProvSelect) {
             const updateKeyVisibility = () => {
                 const p = apiProvSelect.value;
-                ['gemini', 'zai', 'openrouter', 'bedrock', 'openai', 'anthropic', 'groq', 'deepseek', 'xai', 'mistral', 'sakana'].forEach(prov => {
+                ['gemini', 'zai', 'openrouter', 'bedrock', 'openai', 'anthropic', 'groq', 'deepseek', 'xai', 'mistral', 'sakana', 'opencode'].forEach(prov => {
                     document.getElementById(`${prov}-api-key-container`)?.classList.toggle('hidden', p !== prov);
                 });
             };
@@ -965,7 +966,7 @@ window.dbUtils = dbUtils;
             setTimeout(updateKeyVisibility, 500);
         }
 
-        const providers = ['gemini', 'zai', 'openrouter', 'bedrock', 'openai', 'anthropic', 'groq', 'deepseek', 'xai', 'mistral', 'sakana'];
+        const providers = ['gemini', 'zai', 'openrouter', 'bedrock', 'openai', 'anthropic', 'groq', 'deepseek', 'xai', 'mistral', 'sakana', 'opencode'];
         const defaultModelLists = {
             // ここは「追加モデル」の初期値として実際に保存される。提供終了したモデルを
             // 置くと、新しく使い始めた人の一覧が最初から使えないモデルで埋まるため、
@@ -980,7 +981,8 @@ window.dbUtils = dbUtils;
             zai: 'glm-4.6, glm-4.5-flash',
             openrouter: 'deepseek/deepseek-chat, anthropic/claude-opus-4.6, google/gemini-3.5-flash',
             bedrock: 'us.anthropic.claude-sonnet-4-6, us.anthropic.claude-opus-4-6-v1',
-            sakana: 'fugu, fugu-ultra'
+            sakana: 'fugu, fugu-ultra',
+            opencode: 'big-pickle, nemotron-3-ultra-free'
         };
 
         state.settings.customModelsText = state.settings.customModelsText || {};

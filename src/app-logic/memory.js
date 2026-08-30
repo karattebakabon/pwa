@@ -8,6 +8,7 @@ import {
     OPENROUTER_API_BASE_URL,
     ZAI_API_BASE_URL,
     SAKANA_API_BASE_URL,
+    OPENCODE_API_BASE_URL,
     DEFAULT_ANTHROPIC_MODEL,
 } from '../constants.js';
 import { dbUtils } from '../db.js';
@@ -30,6 +31,7 @@ function getOpenAICompatConfig(provider) {
         openrouter: state.settings.openrouterApiKey,
         zai: state.settings.zaiApiKey || state.settings.apiKey,
         sakana: state.settings.sakanaApiKey,
+        opencode: state.settings.opencodeApiKey,
     };
     const urls = {
         openai: 'https://api.openai.com/v1/chat/completions',
@@ -40,13 +42,21 @@ function getOpenAICompatConfig(provider) {
         openrouter: OPENROUTER_API_BASE_URL,
         zai: ZAI_API_BASE_URL,
         sakana: SAKANA_API_BASE_URL,
+        opencode: OPENCODE_API_BASE_URL,
     };
     return { apiKey: keys[provider], baseUrl: urls[provider] };
 }
 
 // プロバイダー横断で補助生成（要約・メモリ学習）を実行する共通ヘルパー。
 // systemPrompt + userContent を送り、{ text, raw } を返す。HTTPエラー時は例外を投げる。
-async function runAuxiliaryCompletion({ provider, model, systemPrompt, userContent, temperature = 0.3, maxTokens = 4096 }) {
+async function runAuxiliaryCompletion({
+    provider,
+    model,
+    systemPrompt,
+    userContent,
+    temperature = 0.3,
+    maxTokens = 4096,
+}) {
     let endpoint, headers, body, parse;
 
     if (provider === 'anthropic') {
@@ -117,7 +127,13 @@ function inferProviderFromModel(model, fallback) {
     if (m.startsWith('gemini')) return 'gemini';
     if (m.startsWith('gpt') || m.startsWith('chatgpt') || /^o[1-9]/.test(m)) return 'openai';
     if (m.startsWith('grok')) return 'xai';
-    if (m.startsWith('mistral') || m.startsWith('codestral') || m.startsWith('open-mistral') || m.startsWith('open-mixtral')) return 'mistral';
+    if (
+        m.startsWith('mistral') ||
+        m.startsWith('codestral') ||
+        m.startsWith('open-mistral') ||
+        m.startsWith('open-mixtral')
+    )
+        return 'mistral';
     if (m.startsWith('glm')) return 'zai';
     if (m.startsWith('fugu')) return 'sakana';
     return fallback;
@@ -131,12 +147,12 @@ function getMemoryLearnModel(provider) {
         deepseek: 'deepseek-chat',
         openai: 'gpt-4o-mini',
         mistral: 'mistral-small-latest',
+        opencode: 'deepseek-v4-flash',
     };
     return lightModels[provider] || state.settings.modelName;
 }
 
 export const memoryMethods = {
-
     /**
      * @private 現在の永続メモリから状況サマリーを生成するヘルパー関数
      * @returns {string} AI向けのマークダウン形式のサマリー文字列
@@ -147,19 +163,23 @@ export const memoryMethods = {
             return '';
         }
 
-        let summary = "【現在の状況サマリー】\n";
+        let summary = '【現在の状況サマリー】\n';
         const sections = [];
 
         // 1. キャラクター記憶 (最優先)
-        const characterMemoryEntries = Object.entries(memory).filter(([key]) => key.startsWith('character_memory_'));
+        const characterMemoryEntries = Object.entries(memory).filter(([key]) =>
+            key.startsWith('character_memory_')
+        );
         if (characterMemoryEntries.length > 0) {
-            let content = characterMemoryEntries.map(([key, value]) => {
-                const charName = key.replace('character_memory_', '');
-                return `■ ${charName}\n` + JSON.stringify(value, null, 2);
-            }).join('\n');
+            let content = characterMemoryEntries
+                .map(([key, value]) => {
+                    const charName = key.replace('character_memory_', '');
+                    return `■ ${charName}\n` + JSON.stringify(value, null, 2);
+                })
+                .join('\n');
             sections.push(`## キャラクター記憶 (manage_character_memory)\n${content}`);
         }
-        
+
         // 2. シーン
         if (memory.scene_stack && memory.scene_stack.length > 0) {
             const currentScene = memory.scene_stack[memory.scene_stack.length - 1];
@@ -175,43 +195,61 @@ export const memoryMethods = {
         }
 
         // 4. ステータス
-        const statusEntries = Object.entries(memory).filter(([key]) => key.startsWith('character_') && !key.startsWith('character_memory_'));
+        const statusEntries = Object.entries(memory).filter(
+            ([key]) => key.startsWith('character_') && !key.startsWith('character_memory_')
+        );
         if (statusEntries.length > 0) {
-            let content = statusEntries.map(([key, value]) => {
-                const charName = key.replace('character_', '');
-                const statuses = Object.entries(value).map(([sKey, sValue]) => `${sKey}: ${sValue}`).join(', ');
-                return `- ${charName}: ${statuses}`;
-            }).join('\n');
+            let content = statusEntries
+                .map(([key, value]) => {
+                    const charName = key.replace('character_', '');
+                    const statuses = Object.entries(value)
+                        .map(([sKey, sValue]) => `${sKey}: ${sValue}`)
+                        .join(', ');
+                    return `- ${charName}: ${statuses}`;
+                })
+                .join('\n');
             sections.push(`## 主要ステータス (manage_character_status)\n${content}`);
         }
 
         // 5. 所持品
         if (memory.inventories && Object.keys(memory.inventories).length > 0) {
-            let content = Object.entries(memory.inventories).map(([charName, items]) => {
-                const itemList = Object.entries(items).map(([itemName, qty]) => `${itemName}(${qty})`).join(', ');
-                return `- ${charName}: ${itemList}`;
-            }).join('\n');
+            let content = Object.entries(memory.inventories)
+                .map(([charName, items]) => {
+                    const itemList = Object.entries(items)
+                        .map(([itemName, qty]) => `${itemName}(${qty})`)
+                        .join(', ');
+                    return `- ${charName}: ${itemList}`;
+                })
+                .join('\n');
             sections.push(`## 所持品 (manage_inventory)\n${content}`);
         }
-        
+
         // 6. 口調
         if (memory.style_profiles && Object.keys(memory.style_profiles).length > 0) {
-            let content = Object.entries(memory.style_profiles).map(([charName, profile]) => {
-                const profileDetails = Object.entries(profile).map(([key, value]) => `${key}: ${value}`).join(', ');
-                return `- ${charName}: ${profileDetails}`;
-            }).join('\n');
+            let content = Object.entries(memory.style_profiles)
+                .map(([charName, profile]) => {
+                    const profileDetails = Object.entries(profile)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(', ');
+                    return `- ${charName}: ${profileDetails}`;
+                })
+                .join('\n');
             sections.push(`## 口調設定 (manage_style_profile)\n${content}`);
         }
 
         // 7. フラグと短期記憶 (既知の構造化データキーを除外して抽出)
         const knownKeys = new Set(['scene_stack', 'game_day', 'inventories', 'style_profiles']);
-        const flagAndMemoryKeys = Object.keys(memory).filter(key => 
-            !key.startsWith('character_') && !knownKeys.has(key)
+        const flagAndMemoryKeys = Object.keys(memory).filter(
+            (key) => !key.startsWith('character_') && !knownKeys.has(key)
         );
 
         if (flagAndMemoryKeys.length > 0) {
-            let flagContent = flagAndMemoryKeys.map(key => `- ${key}: ${JSON.stringify(memory[key])}`).join('\n');
-            sections.push(`## フラグ・重要設定 (manage_flags, manage_persistent_memory)\n${flagContent}`);
+            let flagContent = flagAndMemoryKeys
+                .map((key) => `- ${key}: ${JSON.stringify(memory[key])}`)
+                .join('\n');
+            sections.push(
+                `## フラグ・重要設定 (manage_flags, manage_persistent_memory)\n${flagContent}`
+            );
         }
 
         if (sections.length > 0) {
@@ -228,7 +266,6 @@ export const memoryMethods = {
         this.toggleMemoryIconVisibility();
     },
 
-
     toggleMemoryIconVisibility() {
         const isMasterEnabled = state.settings.enableMemory;
         elements.memoryToggleBtn.classList.toggle('hidden', !isMasterEnabled);
@@ -236,7 +273,6 @@ export const memoryMethods = {
             elements.memoryToggleBtn.classList.toggle('active', state.isMemoryEnabledForChat);
         }
     },
-
 
     async toggleChatMemory() {
         state.isMemoryEnabledForChat = !state.isMemoryEnabledForChat;
@@ -246,11 +282,10 @@ export const memoryMethods = {
             try {
                 await dbUtils.saveChat();
             } catch (error) {
-                console.error("チャットごとのメモリ設定の保存に失敗:", error);
+                console.error('チャットごとのメモリ設定の保存に失敗:', error);
             }
         }
     },
-
 
     async openMemoryManagementDialog() {
         if (!state.activeProfileId) return;
@@ -259,39 +294,39 @@ export const memoryMethods = {
             this.renderMemoryList(memoryData ? memoryData.items : []);
             elements.memoryManagementDialog.showModal();
         } catch (error) {
-            console.error("記憶管理ダイアログの表示に失敗:", error);
-            await uiUtils.showCustomAlert("記憶の読み込みに失敗しました。");
+            console.error('記憶管理ダイアログの表示に失敗:', error);
+            await uiUtils.showCustomAlert('記憶の読み込みに失敗しました。');
         }
     },
-
 
     renderMemoryList(memoryItems) {
         elements.memoryListContainer.innerHTML = '';
         if (!memoryItems || memoryItems.length === 0) {
-            elements.memoryListContainer.innerHTML = '<p class="no-memory-message">記憶されている項目はありません。</p>';
+            elements.memoryListContainer.innerHTML =
+                '<p class="no-memory-message">記憶されている項目はありません。</p>';
             return;
         }
         memoryItems.forEach((item, index) => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'memory-item';
-            
+
             const textSpan = document.createElement('span');
             textSpan.className = 'memory-item-text';
             textSpan.textContent = item;
-            
+
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'memory-item-actions';
-            
+
             const editBtn = document.createElement('button');
             editBtn.innerHTML = '<span class="material-symbols-outlined">edit</span>';
-            editBtn.title = "編集";
+            editBtn.title = '編集';
             editBtn.onclick = () => this.editMemoryItem(index);
-            
+
             const deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
-            deleteBtn.title = "削除";
+            deleteBtn.title = '削除';
             deleteBtn.onclick = () => this.deleteMemoryItem(index);
-            
+
             actionsDiv.appendChild(editBtn);
             actionsDiv.appendChild(deleteBtn);
             itemDiv.appendChild(textSpan);
@@ -300,32 +335,30 @@ export const memoryMethods = {
         });
     },
 
-
     async addMemoryItem() {
         const newItem = elements.newMemoryInput.value.trim();
         if (!newItem) return;
 
         try {
-            const memoryData = await dbUtils.getMemory(state.activeProfileId) || { items: [] };
+            const memoryData = (await dbUtils.getMemory(state.activeProfileId)) || { items: [] };
             memoryData.items.push(newItem);
             await dbUtils.saveMemory(state.activeProfileId, memoryData);
             this.markAsDirtyAndSchedulePush(true);
             this.renderMemoryList(memoryData.items);
             elements.newMemoryInput.value = '';
         } catch (error) {
-            console.error("記憶の追加に失敗:", error);
-            await uiUtils.showCustomAlert("記憶の追加に失敗しました。");
+            console.error('記憶の追加に失敗:', error);
+            await uiUtils.showCustomAlert('記憶の追加に失敗しました。');
         }
     },
-
 
     async editMemoryItem(index) {
         try {
             const memoryData = await dbUtils.getMemory(state.activeProfileId);
             if (!memoryData || !memoryData.items || !memoryData.items[index]) return;
-            
+
             const currentItem = memoryData.items[index];
-            const newItem = await uiUtils.showCustomPrompt("記憶を編集:", currentItem);
+            const newItem = await uiUtils.showCustomPrompt('記憶を編集:', currentItem);
 
             if (newItem && newItem.trim() !== currentItem) {
                 memoryData.items[index] = newItem.trim();
@@ -334,11 +367,10 @@ export const memoryMethods = {
                 this.renderMemoryList(memoryData.items);
             }
         } catch (error) {
-            console.error("記憶の編集に失敗:", error);
-            await uiUtils.showCustomAlert("記憶の編集に失敗しました。");
+            console.error('記憶の編集に失敗:', error);
+            await uiUtils.showCustomAlert('記憶の編集に失敗しました。');
         }
     },
-
 
     async deleteMemoryItem(index) {
         try {
@@ -346,8 +378,10 @@ export const memoryMethods = {
             if (!memoryData || !memoryData.items || !memoryData.items[index]) return;
 
             const itemToDelete = memoryData.items[index];
-            const confirmed = await uiUtils.showCustomConfirm(`以下の記憶を削除しますか？\n\n「${itemToDelete}」`);
-            
+            const confirmed = await uiUtils.showCustomConfirm(
+                `以下の記憶を削除しますか？\n\n「${itemToDelete}」`
+            );
+
             if (confirmed) {
                 memoryData.items.splice(index, 1);
                 await dbUtils.saveMemory(state.activeProfileId, memoryData);
@@ -355,62 +389,68 @@ export const memoryMethods = {
                 this.renderMemoryList(memoryData.items);
             }
         } catch (error) {
-            console.error("記憶の削除に失敗:", error);
-            await uiUtils.showCustomAlert("記憶の削除に失敗しました。");
+            console.error('記憶の削除に失敗:', error);
+            await uiUtils.showCustomAlert('記憶の削除に失敗しました。');
         }
     },
 
-
     async confirmDeleteAllMemory() {
-        const memoryData = await dbUtils.getMemory(state.activeProfileId) || { items: [] };
+        const memoryData = (await dbUtils.getMemory(state.activeProfileId)) || { items: [] };
         if (memoryData.items.length === 0) {
-            await uiUtils.showCustomAlert("削除する記憶はありません。");
+            await uiUtils.showCustomAlert('削除する記憶はありません。');
             return;
         }
 
-        const confirmed = await uiUtils.showCustomConfirm(`現在プロファイルに保存されている ${memoryData.items.length} 件の記憶をすべて削除しますか？\nこの操作は元に戻せません。`);
+        const confirmed = await uiUtils.showCustomConfirm(
+            `現在プロファイルに保存されている ${memoryData.items.length} 件の記憶をすべて削除しますか？\nこの操作は元に戻せません。`
+        );
         if (confirmed) {
             try {
                 await dbUtils.saveMemory(state.activeProfileId, { items: [] });
                 this.markAsDirtyAndSchedulePush(true);
                 this.renderMemoryList([]);
             } catch (error) {
-                console.error("全記憶の削除に失敗:", error);
-                await uiUtils.showCustomAlert("全記憶の削除に失敗しました。");
+                console.error('全記憶の削除に失敗:', error);
+                await uiUtils.showCustomAlert('全記憶の削除に失敗しました。');
             }
         }
     },
 
-
     async triggerAutoMemorySave() {
         const provider = state.settings.apiProvider || 'gemini';
-        const hasKey = provider === 'anthropic'
-            ? !!state.settings.anthropicApiKey
-            : provider === 'gemini'
-                ? !!state.settings.apiKey
-                : !!getOpenAICompatConfig(provider).apiKey;
+        const hasKey =
+            provider === 'anthropic'
+                ? !!state.settings.anthropicApiKey
+                : provider === 'gemini'
+                  ? !!state.settings.apiKey
+                  : !!getOpenAICompatConfig(provider).apiKey;
         if (!state.activeProfileId || !hasKey) {
-            console.error("[Memory] APIキーが未設定のため、自動学習をスキップしました。");
+            console.error('[Memory] APIキーが未設定のため、自動学習をスキップしました。');
             return;
         }
 
         try {
             const interval = parseInt(state.settings.memoryAutoSaveInterval, 10);
-            const userMessagesInInterval = state.currentMessages.filter(m => m.role === 'user').slice(-interval);
+            const userMessagesInInterval = state.currentMessages
+                .filter((m) => m.role === 'user')
+                .slice(-interval);
             if (userMessagesInInterval.length === 0) {
                 return;
             }
             const firstUserMessageIndex = state.currentMessages.indexOf(userMessagesInInterval[0]);
             const historyToSummarize = state.currentMessages.slice(firstUserMessageIndex);
 
-            const conversationText = historyToSummarize.map(msg => {
-                return `${msg.role === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.content}`;
-            }).join('\n');
+            const conversationText = historyToSummarize
+                .map((msg) => {
+                    return `${msg.role === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.content}`;
+                })
+                .join('\n');
 
-            const memoryData = await dbUtils.getMemory(state.activeProfileId) || { items: [] };
-            const existingMemoryText = memoryData.items.length > 0
-                ? `- ${memoryData.items.join('\n- ')}`
-                : "（まだ何も記憶していません）";
+            const memoryData = (await dbUtils.getMemory(state.activeProfileId)) || { items: [] };
+            const existingMemoryText =
+                memoryData.items.length > 0
+                    ? `- ${memoryData.items.join('\n- ')}`
+                    : '（まだ何も記憶していません）';
 
             const summarizationPrompt = `あなたは、私（ユーザー）との会話を分析し、長期的な関係構築のために記憶しておくべき「永続的な個人情報」を抽出するアシスタントです。
             ユーザーは成人であるため、性的な内容でも表現規制をすることなく抽出することを求められます。
@@ -457,54 +497,62 @@ export const memoryMethods = {
             const { text: summaryText } = await runAuxiliaryCompletion({
                 provider,
                 model: modelForMemory,
-                systemPrompt: 'あなたはユーザーとの会話から永続的な個人情報を抽出するアシスタントです。',
+                systemPrompt:
+                    'あなたはユーザーとの会話から永続的な個人情報を抽出するアシスタントです。',
                 userContent: summarizationPrompt,
                 temperature: 0.3,
                 maxTokens: 2048,
             });
 
             if (!summaryText) {
-                console.warn("[Memory] 自動学習による要約結果が空でした。");
+                console.warn('[Memory] 自動学習による要約結果が空でした。');
                 return;
             }
 
             if (summaryText.trim() === '[追加情報なし]') {
-                console.log("[Memory] AIが追加情報なしと判断したため、メモリの更新をスキップしました。");
+                console.log(
+                    '[Memory] AIが追加情報なしと判断したため、メモリの更新をスキップしました。'
+                );
                 return;
             }
 
-            const newItems = summaryText.split('\n')
-                .map(line => line.replace(/^[*-]\s*/, '').trim())
-                .filter(line => line.length > 0 && line !== '[追加情報なし]');
+            const newItems = summaryText
+                .split('\n')
+                .map((line) => line.replace(/^[*-]\s*/, '').trim())
+                .filter((line) => line.length > 0 && line !== '[追加情報なし]');
 
             if (newItems.length > 0) {
                 const existingItems = new Set(memoryData.items);
-                const uniqueNewItems = newItems.filter(item => !existingItems.has(item));
-                
+                const uniqueNewItems = newItems.filter((item) => !existingItems.has(item));
+
                 if (uniqueNewItems.length > 0) {
                     memoryData.items.push(...uniqueNewItems);
                     await dbUtils.saveMemory(state.activeProfileId, memoryData);
-                    console.log(`[Memory] 自動学習により、${uniqueNewItems.length}件の新しい記憶を追加しました。`, uniqueNewItems);
+                    console.log(
+                        `[Memory] 自動学習により、${uniqueNewItems.length}件の新しい記憶を追加しました。`,
+                        uniqueNewItems
+                    );
                 } else {
-                    console.log("[Memory] 自動学習で生成された記憶は、すべて既存のものでした。");
+                    console.log('[Memory] 自動学習で生成された記憶は、すべて既存のものでした。');
                 }
             }
         } catch (error) {
-            console.error("[Memory] 自動学習プロセスの実行中にエラーが発生しました:", error);
+            console.error('[Memory] 自動学習プロセスの実行中にエラーが発生しました:', error);
         }
     },
-
 
     updateSummarizeButtonState() {
         const messageCount = state.currentMessages.length;
         elements.summarizeHistoryBtn.disabled = messageCount < 5;
     },
 
-
     showChatStats() {
-        const msgs = state.currentMessages.filter(m => !m.isHidden);
-        let totalTokens = 0, totalInput = 0, totalOutput = 0;
-        let totalCacheRead = 0, totalCacheWrite = 0;
+        const msgs = state.currentMessages.filter((m) => !m.isHidden);
+        let totalTokens = 0,
+            totalInput = 0,
+            totalOutput = 0;
+        let totalCacheRead = 0,
+            totalCacheWrite = 0;
         let totalCost = 0;
         let hasCost = false;
         const modelsUsed = new Set();
@@ -516,7 +564,7 @@ export const memoryMethods = {
             const cw = u.cacheCreationInputTokens || 0;
             const out = u.candidatesTokenCount || 0;
             const total = u.totalTokenCount || 0;
-            const inp = (u.promptTokenCount || 0);
+            const inp = u.promptTokenCount || 0;
 
             totalTokens += total;
             totalInput += inp;
@@ -535,8 +583,10 @@ export const memoryMethods = {
             }
         }
 
-        const sizeKb = (new TextEncoder().encode(JSON.stringify(state.currentMessages)).byteLength / 1024).toFixed(2);
-        const toK = n => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
+        const sizeKb = (
+            new TextEncoder().encode(JSON.stringify(state.currentMessages)).byteLength / 1024
+        ).toFixed(2);
+        const toK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
         const hitRate = totalInput > 0 ? ((totalCacheRead / totalInput) * 100).toFixed(1) : '0.0';
 
         const rows = [
@@ -558,42 +608,57 @@ export const memoryMethods = {
             ['Gemini', 'https://aistudio.google.com/usage'],
             ['OpenRouter', 'https://openrouter.ai/activity'],
             ['DeepSeek', 'https://platform.deepseek.com/usage'],
+            ['OpenCode Go', 'https://opencode.ai/dashboard'],
         ];
-        const linksHtml = `<div class="stats-links">`
-            + `<div class="stats-links-title">🔗 API使用量・料金の確認</div>`
-            + `<div class="stats-links-grid">`
-            + usageLinks.map(([name, url]) => `<a class="stats-link" href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>`).join('')
-            + `</div></div>`;
+        const linksHtml =
+            `<div class="stats-links">` +
+            `<div class="stats-links-title">🔗 API使用量・料金の確認</div>` +
+            `<div class="stats-links-grid">` +
+            usageLinks
+                .map(
+                    ([name, url]) =>
+                        `<a class="stats-link" href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>`
+                )
+                .join('') +
+            `</div></div>`;
 
-        elements.chatStatsContent.innerHTML = rows.map(([label, value]) =>
-            `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`
-        ).join('') + linksHtml;
+        elements.chatStatsContent.innerHTML =
+            rows
+                .map(
+                    ([label, value]) =>
+                        `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`
+                )
+                .join('') + linksHtml;
 
         uiUtils.showCustomDialog(elements.chatStatsDialog, elements.chatStatsCloseBtn);
     },
 
-
     // 全チャットを横断した使用量サマリー。プロジェクトの絞り込みに関係なく全件を対象にする。
     async showUsageSummary(range = 'thisMonth') {
-        elements.usageRangeTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.range === range));
-        elements.usageSummaryContent.innerHTML = '<div class="stats-row"><span class="stats-label">集計中...</span></div>';
+        elements.usageRangeTabs.forEach((tab) =>
+            tab.classList.toggle('active', tab.dataset.range === range)
+        );
+        elements.usageSummaryContent.innerHTML =
+            '<div class="stats-row"><span class="stats-label">集計中...</span></div>';
         if (!elements.usageSummaryDialog.open) {
             uiUtils.showCustomDialog(elements.usageSummaryDialog, elements.usageSummaryCloseBtn);
         }
 
         let chats;
         try {
-            const getAllUnfiltered = window.dbUtils.getAllChatsUnfiltered || dbUtils.getAllChats.bind(dbUtils);
+            const getAllUnfiltered =
+                window.dbUtils.getAllChatsUnfiltered || dbUtils.getAllChats.bind(dbUtils);
             chats = await getAllUnfiltered();
         } catch (error) {
             console.error('使用量の集計に失敗:', error);
-            elements.usageSummaryContent.innerHTML = '<div class="stats-row"><span class="stats-label">履歴の読み込みに失敗しました。</span></div>';
+            elements.usageSummaryContent.innerHTML =
+                '<div class="stats-row"><span class="stats-label">履歴の読み込みに失敗しました。</span></div>';
             return;
         }
 
         const summary = summarizeUsage(chats, getUsageRange(range, Date.now()));
-        const toK = n => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
-        const cost = n => `$${n < 0.01 && n > 0 ? n.toFixed(4) : n.toFixed(2)}`;
+        const toK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
+        const cost = (n) => `$${n < 0.01 && n > 0 ? n.toFixed(4) : n.toFixed(2)}`;
 
         const rows = [
             ['推定コスト合計', cost(summary.totalCost)],
@@ -603,30 +668,43 @@ export const memoryMethods = {
             ['出力トークン', toK(summary.totalOutput)],
         ].filter(Boolean);
 
-        const modelRows = summary.byModel.map(m =>
-            `<div class="stats-row"><span class="stats-label">${htmlUtils.escapeHtml(m.model)}`
-            + `<span class="usage-model-sub">${m.messages}件 / 入${toK(m.input)} 出${toK(m.output)}</span></span>`
-            + `<span class="stats-value">${m.priced ? cost(m.cost) : '—'}</span></div>`
-        ).join('');
+        const modelRows = summary.byModel
+            .map(
+                (m) =>
+                    `<div class="stats-row"><span class="stats-label">${htmlUtils.escapeHtml(m.model)}` +
+                    `<span class="usage-model-sub">${m.messages}件 / 入${toK(m.input)} 出${toK(m.output)}</span></span>` +
+                    `<span class="stats-value">${m.priced ? cost(m.cost) : '—'}</span></div>`
+            )
+            .join('');
 
         // OpenRouter経由のモデル名は 'anthropic/claude-...' のようにベンダー名がつく
-        const hasOpenRouter = summary.byModel.some(m => m.model.includes('/'));
+        const hasOpenRouter = summary.byModel.some((m) => m.model.includes('/'));
         const notes = [
             '※ 端末内の履歴からの推定です。削除したチャットや、同期していない端末の分は含まれません。',
-            summary.hasUnpriced ? '※ 「—」は料金表を持たないモデルです（Claude / GPT / Gemini / DeepSeek / Grok 4.6 の最近のモデルに対応）。' : null,
-            hasOpenRouter ? '※ OpenRouter経由は提供元の単価で概算しています。クレジット購入時の手数料ぶん、実際の請求は少し高くなります。' : null,
+            summary.hasUnpriced
+                ? '※ 「—」は料金表を持たないモデルです（Claude / GPT / Gemini / DeepSeek / Grok 4.6 の最近のモデルに対応）。'
+                : null,
+            hasOpenRouter
+                ? '※ OpenRouter経由は提供元の単価で概算しています。クレジット購入時の手数料ぶん、実際の請求は少し高くなります。'
+                : null,
         ].filter(Boolean);
 
         elements.usageSummaryContent.innerHTML =
-            rows.map(([label, value]) => `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`).join('')
-            + (modelRows ? `<div class="usage-model-title">モデル別</div>${modelRows}` : '<div class="usage-model-title">この期間の記録はありません</div>')
-            + `<div class="usage-notes">${notes.join('<br>')}</div>`;
+            rows
+                .map(
+                    ([label, value]) =>
+                        `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`
+                )
+                .join('') +
+            (modelRows
+                ? `<div class="usage-model-title">モデル別</div>${modelRows}`
+                : '<div class="usage-model-title">この期間の記録はありません</div>') +
+            `<div class="usage-notes">${notes.join('<br>')}</div>`;
     },
-
 
     async startSummaryProcess() {
         if (state.isSending || state.editingMessageIndex !== null || state.isEditingSystemPrompt) {
-            uiUtils.showCustomAlert("他の処理が完了してから、再度お試しください。");
+            uiUtils.showCustomAlert('他の処理が完了してから、再度お試しください。');
             return;
         }
 
@@ -636,9 +714,9 @@ export const memoryMethods = {
 
         if (state.currentSummarizedContext && state.currentSummarizedContext.summaryRange) {
             const originalEndIndex = state.currentSummarizedContext.summaryRange.end;
-            
+
             // 要約済み範囲に含まれる表示メッセージの数をカウント
-            const summarizedVisibleMessages = visibleMessages.filter(msg => {
+            const summarizedVisibleMessages = visibleMessages.filter((msg) => {
                 const originalIndex = state.currentMessages.indexOf(msg);
                 return originalIndex < originalEndIndex;
             });
@@ -646,20 +724,22 @@ export const memoryMethods = {
         }
 
         if (end <= start) {
-            uiUtils.showCustomAlert("前回から新しい会話履歴がないため、要約する内容がありません。");
+            uiUtils.showCustomAlert('前回から新しい会話履歴がないため、要約する内容がありません。');
             return;
         }
 
         // フィルタリング後のメッセージリストから要約対象を切り出す
         const messagesToSummarize = visibleMessages.slice(start, end);
-        const originalText = messagesToSummarize.map(m => `${m.role === 'user' ? 'ユーザー' : 'アシスタント'}: ${m.content}`).join('\n\n');
+        const originalText = messagesToSummarize
+            .map((m) => `${m.role === 'user' ? 'ユーザー' : 'アシスタント'}: ${m.content}`)
+            .join('\n\n');
 
         const confirmed = await uiUtils.showCustomConfirm(
             `履歴を要約しますか？\n\n要約を実行すると、対象範囲のメッセージ（${messagesToSummarize.length}件）は編集・削除・再生成ができなくなります。この操作は元に戻せません。`
         );
 
         if (!confirmed) {
-            console.log("要約処理をユーザーがキャンセルしました。");
+            console.log('要約処理をユーザーがキャンセルしました。');
             return;
         }
 
@@ -678,16 +758,22 @@ export const memoryMethods = {
         await this._callSummaryApi(originalText);
     },
 
-
-
     async _callSummaryApi(originalText, _isRetry = false) {
         // 要約モデルはユーザー指定（summaryModelName）優先。モデル名からプロバイダーを推定し、
         // 判別できない場合のみ現在選択中のプロバイダーにフォールバックする。
         const summaryModel = state.settings.summaryModelName || state.settings.modelName;
-        const provider = inferProviderFromModel(summaryModel, state.settings.apiProvider || 'gemini');
+        const provider = inferProviderFromModel(
+            summaryModel,
+            state.settings.apiProvider || 'gemini'
+        );
         try {
             const userContent = `【要約対象の会話履歴】\n${originalText}`;
-            console.log('--- [要約API] リクエスト開始 --- 使用モデル:', summaryModel, 'provider:', provider);
+            console.log(
+                '--- [要約API] リクエスト開始 --- 使用モデル:',
+                summaryModel,
+                'provider:',
+                provider
+            );
 
             const { text: summaryText, raw } = await runAuxiliaryCompletion({
                 provider,
@@ -699,7 +785,7 @@ export const memoryMethods = {
             });
 
             if (!summaryText) {
-                let errorMessage = "APIから有効な要約結果が得られませんでした。";
+                let errorMessage = 'APIから有効な要約結果が得られませんでした。';
                 // Gemini のブロック理由が取れれば付記する
                 const finishReason = raw?.candidates?.[0]?.finishReason;
                 const blockReason = raw?.promptFeedback?.blockReason;
@@ -713,9 +799,8 @@ export const memoryMethods = {
             }
 
             this._showSummaryDialog(summaryText, originalText.length);
-
         } catch (error) {
-            console.error("要約API呼び出し/処理中にエラー:", error);
+            console.error('要約API呼び出し/処理中にエラー:', error);
             elements.summaryDialog.close();
 
             // 要約モデルが提供終了していた場合は、後継への切替を案内し、切り替えたら一度だけ再試行する。
@@ -735,11 +820,9 @@ export const memoryMethods = {
         }
     },
 
-
-
     _showSummaryDialog(summaryText, originalLength) {
         // 統計情報を更新
-        const reductionRate = (100 - (summaryText.length / originalLength * 100)).toFixed(1);
+        const reductionRate = (100 - (summaryText.length / originalLength) * 100).toFixed(1);
         elements.summaryStats.textContent = `原文: ${originalLength.toLocaleString()}文字 → 要約: ${summaryText.length.toLocaleString()}文字 (${reductionRate} %削減)`;
         // テキストエリアに結果を表示し、編集可能にする
         elements.summaryEditor.value = summaryText;
@@ -753,7 +836,6 @@ export const memoryMethods = {
         }
     },
 
-
     async regenerateSummary() {
         const originalText = elements.summaryDialog.dataset.originalText;
         if (originalText) {
@@ -763,20 +845,18 @@ export const memoryMethods = {
             elements.summaryEditor.disabled = true;
             elements.summaryRegenerateBtn.disabled = true;
             elements.summaryConfirmBtn.disabled = true;
-            
+
             // APIを再呼び出し
             await this._callSummaryApi(originalText);
         } else {
-            uiUtils.showCustomAlert("再生成するための元データが見つかりませんでした。");
+            uiUtils.showCustomAlert('再生成するための元データが見つかりませんでした。');
         }
     },
-
-
 
     async confirmSummary() {
         const summaryText = elements.summaryEditor.value.trim();
         if (!summaryText) {
-            uiUtils.showCustomAlert("要約内容が空です。");
+            uiUtils.showCustomAlert('要約内容が空です。');
             return;
         }
 
@@ -785,37 +865,41 @@ export const memoryMethods = {
 
         try {
             // 既存の要約と新しい要約を結合する
-            const existingSummary = state.currentSummarizedContext ? state.currentSummarizedContext.summaryText : "";
-            const newSummaryText = existingSummary ? `${existingSummary}\n\n${summaryText}` : summaryText;
+            const existingSummary = state.currentSummarizedContext
+                ? state.currentSummarizedContext.summaryText
+                : '';
+            const newSummaryText = existingSummary
+                ? `${existingSummary}\n\n${summaryText}`
+                : summaryText;
 
             // state.currentMessagesを上書きせず、summarizedContextオブジェクトを更新する
             state.currentSummarizedContext = {
                 summaryText: newSummaryText,
                 summaryRange: { start: 0, end: end }, // startは常に0、endを更新
-                summarizedAt: Date.now()
+                summarizedAt: Date.now(),
             };
 
             // 変更されたsummarizedContextを含むチャット全体を保存する
             await dbUtils.saveChat();
 
             elements.summaryDialog.close('confirm');
-            
+
             // UIを再描画してサマリーマーカーを表示させる
             uiUtils.renderChatMessages();
-            
-            await uiUtils.showCustomAlert(`履歴の要約を保存しました。\n次回以降、APIには要約された内容が送信されます。`);
 
+            await uiUtils.showCustomAlert(
+                `履歴の要約を保存しました。\n次回以降、APIには要約された内容が送信されます。`
+            );
         } catch (error) {
-            console.error("要約の保存エラー:", error);
+            console.error('要約の保存エラー:', error);
             await uiUtils.showCustomAlert(`要約の保存に失敗しました: ${error.message}`);
         }
     },
 
-
-
-
-
     toggleSummaryButtonVisibility() {
-        elements.summarizeHistoryBtn.classList.toggle('hidden', !state.settings.enableSummaryButton);
-    }
+        elements.summarizeHistoryBtn.classList.toggle(
+            'hidden',
+            !state.settings.enableSummaryButton
+        );
+    },
 };

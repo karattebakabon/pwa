@@ -53,6 +53,8 @@ try {
         groqApiKeyContainer: document.getElementById('groq-api-key-container'),
         deepseekApiKeyInput: document.getElementById('deepseek-api-key'),
         deepseekApiKeyContainer: document.getElementById('deepseek-api-key-container'),
+        opencodeApiKeyInput: document.getElementById('opencode-api-key'),
+        opencodeApiKeyContainer: document.getElementById('opencode-api-key-container'),
         sakanaApiKeyInput: document.getElementById('sakana-api-key'),
         sakanaApiKeyContainer: document.getElementById('sakana-api-key-container'),
         xaiApiKeyInput: document.getElementById('xai-api-key'),
