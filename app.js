@@ -9612,6 +9612,22 @@ AI: ${firstModelContent}`;
       }
       if (state.settings.geminiEnableFunctionCalling && window.functionDeclarations) {
         const openAITools = [];
+        const normalizeJsonSchema = /* @__PURE__ */ __name((schema) => {
+          if (Array.isArray(schema)) return schema.map(normalizeJsonSchema);
+          if (typeof schema !== "object" || schema === null) return schema;
+          const normalized = {};
+          for (const key in schema) {
+            if (!schema.hasOwnProperty(key)) continue;
+            let value = schema[key];
+            if (key === "type" && typeof value === "string") {
+              value = value.toLowerCase();
+            } else if (typeof value === "object" && value !== null) {
+              value = normalizeJsonSchema(value);
+            }
+            normalized[key] = value;
+          }
+          return normalized;
+        }, "normalizeJsonSchema");
         for (const geminiTool of window.functionDeclarations) {
           if (geminiTool.function_declarations && Array.isArray(geminiTool.function_declarations)) {
             for (const funcDecl of geminiTool.function_declarations) {
@@ -9620,7 +9636,8 @@ AI: ${firstModelContent}`;
                 function: {
                   name: funcDecl.name,
                   description: funcDecl.description || "",
-                  parameters: funcDecl.parameters || {}
+                  // 型名を小文字に正規化してから送る（GLM等の厳密なバックエンド対策）
+                  parameters: normalizeJsonSchema(funcDecl.parameters || {})
                 }
               });
             }

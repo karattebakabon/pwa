@@ -853,6 +853,27 @@ export const apiUtils = {
             // Gemini形式のfunction declarationsをOpenAI形式に変換
             const openAITools = [];
 
+            // JSON Schema の "type" 値を小文字に正規化する。
+            // Gemini は "OBJECT"/"STRING" 等の大文字を許容するが、Zhipu GLM 等
+            // 厳密な OpenAI 互換バックエンドは小文字 ("object"/"string") しか
+            // 受け付けず、大文字のままだと 400 (1210 Invalid API parameter) になる。
+            const normalizeJsonSchema = (schema) => {
+                if (Array.isArray(schema)) return schema.map(normalizeJsonSchema);
+                if (typeof schema !== 'object' || schema === null) return schema;
+                const normalized = {};
+                for (const key in schema) {
+                    if (!schema.hasOwnProperty(key)) continue;
+                    let value = schema[key];
+                    if (key === 'type' && typeof value === 'string') {
+                        value = value.toLowerCase();
+                    } else if (typeof value === 'object' && value !== null) {
+                        value = normalizeJsonSchema(value);
+                    }
+                    normalized[key] = value;
+                }
+                return normalized;
+            };
+
             for (const geminiTool of window.functionDeclarations) {
                 if (geminiTool.function_declarations && Array.isArray(geminiTool.function_declarations)) {
                     // Gemini形式: { function_declarations: [{ name, description, parameters }] }
@@ -862,7 +883,8 @@ export const apiUtils = {
                             function: {
                                 name: funcDecl.name,
                                 description: funcDecl.description || '',
-                                parameters: funcDecl.parameters || {}
+                                // 型名を小文字に正規化してから送る（GLM等の厳密なバックエンド対策）
+                                parameters: normalizeJsonSchema(funcDecl.parameters || {})
                             }
                         });
                     }
