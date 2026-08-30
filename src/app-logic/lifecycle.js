@@ -1298,6 +1298,7 @@ export const lifecycleMethods = {
             mistralApiKey: { element: elements.mistralApiKeyInput, event: 'input' },
             sakanaApiKey: { element: elements.sakanaApiKeyInput, event: 'input' },
             opencodeApiKey: { element: elements.opencodeApiKeyInput, event: 'input' },
+            opencodeProxyUrl: { element: elements.opencodeProxyUrlInput, event: 'input' },
             modelName: {
                 element: elements.modelNameSelect,
                 event: 'change',

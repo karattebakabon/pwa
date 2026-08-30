@@ -321,6 +321,7 @@ export const profileMethods = {
             'mistralApiKey',
             'sakanaApiKey',
             'opencodeApiKey',
+            'opencodeProxyUrl',
             'modelName',
             'dummyUser',
             'dummyModel',

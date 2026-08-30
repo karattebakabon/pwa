@@ -3,12 +3,12 @@ import {
     CHATS_STORE,
     DEEPSEEK_API_BASE_URL,
     DEFAULT_DEEPSEEK_MODEL,
+    DEFAULT_OPENCODE_PROXY_URL,
     DUPLICATE_SUFFIX,
     GEMINI_API_BASE_URL,
     GROQ_API_BASE_URL,
     IMPORT_PREFIX,
     MISTRAL_API_BASE_URL,
-    OPENCODE_API_BASE_URL,
     OPENROUTER_API_BASE_URL,
     SAKANA_API_BASE_URL,
     XAI_API_BASE_URL,
@@ -950,7 +950,12 @@ export const chatMethods = {
                     openrouter: OPENROUTER_API_BASE_URL,
                     zai: ZAI_API_BASE_URL,
                     sakana: SAKANA_API_BASE_URL,
-                    opencode: OPENCODE_API_BASE_URL,
+                    // OpenCode Go は CORS 非対応のためプロキシ経由（未設定ならデフォルトプロキシ）
+                    opencode:
+                        (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(
+                            /\/+$/,
+                            ''
+                        ) + '/chat/completions',
                 };
                 const apiKey = apiKeyMap[provider];
                 const baseUrl = baseUrlMap[provider];

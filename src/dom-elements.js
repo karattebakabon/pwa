@@ -55,6 +55,7 @@ try {
         deepseekApiKeyContainer: document.getElementById('deepseek-api-key-container'),
         opencodeApiKeyInput: document.getElementById('opencode-api-key'),
         opencodeApiKeyContainer: document.getElementById('opencode-api-key-container'),
+        opencodeProxyUrlInput: document.getElementById('opencode-proxy-url'),
         sakanaApiKeyInput: document.getElementById('sakana-api-key'),
         sakanaApiKeyContainer: document.getElementById('sakana-api-key-container'),
         xaiApiKeyInput: document.getElementById('xai-api-key'),

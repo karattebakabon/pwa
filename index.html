@@ -406,6 +406,11 @@
                             </p>
                             <label for="opencode-custom-models" style="margin-top: 15px;">▼ 追加モデル (カンマ区切り):</label>
                             <textarea id="opencode-custom-models" placeholder="例: big-pickle, nemotron-3-ultra-free"></textarea>
+                            <label for="opencode-proxy-url" style="margin-top: 15px;">▼ プロキシURL (CORS対策):</label>
+                            <input type="url" id="opencode-proxy-url" placeholder="https://xxx.workers.dev" aria-label="OpenCode Go プロキシURL">
+                            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
+                                ※ OpenCode Go API はブラウザからの直接呼び出し（CORS）に対応していないため、Cloudflare Workers 等のプロキシ経由で呼び出します。デフォルトは同梱の worker/ フォルダを自分のアカウントにデプロイしたURLに変更してください。
+                            </p>
                         </div>
 
                         <div id="xai-api-key-container" class="hidden">

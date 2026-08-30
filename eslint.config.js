@@ -71,6 +71,16 @@ export default [
         },
     },
 
+    // Cloudflare Workers（worker/ 配下。ランタイムがブラウザと異なるため別設定）
+    {
+        files: ['worker/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 2023,
+            sourceType: 'module',
+            globals: { ...globals.worker },
+        },
+    },
+
     // Node 側（設定・ビルド・テスト）
     {
         files: ['*.config.js', '*.mjs', 'tests/**/*.js'],

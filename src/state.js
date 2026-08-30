@@ -1,5 +1,5 @@
 // アプリの実行時状態（Phase 1 で app.js から抽出）。構造・初期値は不変。
-import { DEFAULT_MODEL, DEFAULT_BEDROCK_REGION } from './constants.js';
+import { DEFAULT_MODEL, DEFAULT_BEDROCK_REGION, DEFAULT_OPENCODE_PROXY_URL } from './constants.js';
 
 export const state = {
     tabId: `tab_${Date.now()}_${Math.random()}`, // このタブを識別するユニークID
@@ -36,6 +36,7 @@ export const state = {
         mistralApiKey: '',
         sakanaApiKey: '',
         opencodeApiKey: '',
+        opencodeProxyUrl: DEFAULT_OPENCODE_PROXY_URL,
         modelName: DEFAULT_MODEL,
         systemPrompt: '',
         temperature: null,

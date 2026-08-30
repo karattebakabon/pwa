@@ -1,0 +1,9 @@
+name = "opencode-go-proxy"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# 使用量ルート（課金が発生しうるエンドポイント）を公開プロキシにしないため、
+# 任意の共有トークン認証を推奨。設定する場合:
+#   npx wrangler secret put X_ACCESS_TOKEN
+# 未設定でも動作するが、URLを知っている誰でも使える状態になる。
+# [vars] に書くとコード公開時に漏れるため、必ず secret で設定すること。

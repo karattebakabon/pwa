@@ -29,6 +29,12 @@ export const XAI_API_BASE_URL = 'https://api.x.ai/v1/chat/completions';
 export const MISTRAL_API_BASE_URL = 'https://api.mistral.ai/v1/chat/completions';
 export const SAKANA_API_BASE_URL = 'https://api.sakana.ai/v1/chat/completions';
 export const OPENCODE_API_BASE_URL = 'https://opencode.ai/zen/go/v1/chat/completions';
+// OpenCode Go は CORS ヘッダーを返さないため、ブラウザからは直接呼べない。
+// Cloudflare Workers に置いた個人プロキシをデフォルトとし、設定画面から変更可能。
+export const DEFAULT_OPENCODE_PROXY_URL = 'https://opencode-go-proxy.emerald-pencil.workers.dev';
+// プロキシ経由の chat/completions / models エンドポイント（プロキシは /v1/ を上流へ付与して中継する）
+export const OPENCODE_PROXY_CHAT_URL = `${DEFAULT_OPENCODE_PROXY_URL}/chat/completions`;
+export const OPENCODE_PROXY_MODELS_URL = `${DEFAULT_OPENCODE_PROXY_URL}/models`;
 export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';

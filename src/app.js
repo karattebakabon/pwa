@@ -888,7 +888,7 @@ window.dbUtils = dbUtils;
                     { key: 'deepseek', url: 'https://api.deepseek.com/v1/models',        apiKey: state.settings.deepseekApiKey },
                     { key: 'xai',      url: 'https://api.x.ai/v1/models',               apiKey: state.settings.xaiApiKey },
                     { key: 'mistral',  url: 'https://api.mistral.ai/v1/models',          apiKey: state.settings.mistralApiKey },
-                    { key: 'opencode', url: 'https://opencode.ai/zen/go/v1/models',       apiKey: state.settings.opencodeApiKey },
+                    { key: 'opencode', url: (state.settings.opencodeProxyUrl || 'https://opencode-go-proxy.emerald-pencil.workers.dev').replace(/\/+$/, '') + '/models',       apiKey: state.settings.opencodeApiKey },
                 ];
                 for (const p of compatList) {
                     if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null);

@@ -1617,6 +1617,7 @@ ${relationship_context}`;
       deepseekApiKeyContainer: document.getElementById("deepseek-api-key-container"),
       opencodeApiKeyInput: document.getElementById("opencode-api-key"),
       opencodeApiKeyContainer: document.getElementById("opencode-api-key-container"),
+      opencodeProxyUrlInput: document.getElementById("opencode-proxy-url"),
       sakanaApiKeyInput: document.getElementById("sakana-api-key"),
       sakanaApiKeyContainer: document.getElementById("sakana-api-key-container"),
       xaiApiKeyInput: document.getElementById("xai-api-key"),
@@ -1878,7 +1879,9 @@ ${relationship_context}`;
   var XAI_API_BASE_URL = "https://api.x.ai/v1/chat/completions";
   var MISTRAL_API_BASE_URL = "https://api.mistral.ai/v1/chat/completions";
   var SAKANA_API_BASE_URL = "https://api.sakana.ai/v1/chat/completions";
-  var OPENCODE_API_BASE_URL = "https://opencode.ai/zen/go/v1/chat/completions";
+  var DEFAULT_OPENCODE_PROXY_URL = "https://opencode-go-proxy.emerald-pencil.workers.dev";
+  var OPENCODE_PROXY_CHAT_URL = `${DEFAULT_OPENCODE_PROXY_URL}/chat/completions`;
+  var OPENCODE_PROXY_MODELS_URL = `${DEFAULT_OPENCODE_PROXY_URL}/models`;
   var DUPLICATE_SUFFIX = " (コピー)";
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
@@ -2265,6 +2268,7 @@ ${relationship_context}`;
       mistralApiKey: "",
       sakanaApiKey: "",
       opencodeApiKey: "",
+      opencodeProxyUrl: DEFAULT_OPENCODE_PROXY_URL,
       modelName: DEFAULT_MODEL,
       systemPrompt: "",
       temperature: null,
@@ -3842,6 +3846,12 @@ Reason: [NGの場合の理由]`,
       if (elements.deepseekApiKeyInput) {
         elements.deepseekApiKeyInput.value = state.settings.deepseekApiKey || "";
       }
+      if (elements.opencodeApiKeyInput) {
+        elements.opencodeApiKeyInput.value = state.settings.opencodeApiKey || "";
+      }
+      if (elements.opencodeProxyUrlInput) {
+        elements.opencodeProxyUrlInput.value = state.settings.opencodeProxyUrl || "";
+      }
       if (elements.xaiApiKeyInput) {
         elements.xaiApiKeyInput.value = state.settings.xaiApiKey || "";
       }
@@ -4765,6 +4775,7 @@ Reason: [NGの場合の理由]`,
         "mistralApiKey",
         "sakanaApiKey",
         "opencodeApiKey",
+        "opencodeProxyUrl",
         "modelName",
         "dummyUser",
         "dummyModel",
@@ -5948,6 +5959,7 @@ Reason: [NGの場合の理由]`,
         mistralApiKey: { element: elements.mistralApiKeyInput, event: "input" },
         sakanaApiKey: { element: elements.sakanaApiKeyInput, event: "input" },
         opencodeApiKey: { element: elements.opencodeApiKeyInput, event: "input" },
+        opencodeProxyUrl: { element: elements.opencodeProxyUrlInput, event: "input" },
         modelName: {
           element: elements.modelNameSelect,
           event: "change",
@@ -8864,7 +8876,11 @@ AI: ${firstModelContent}`;
             openrouter: OPENROUTER_API_BASE_URL,
             zai: ZAI_API_BASE_URL,
             sakana: SAKANA_API_BASE_URL,
-            opencode: OPENCODE_API_BASE_URL
+            // OpenCode Go は CORS 非対応のためプロキシ経由（未設定ならデフォルトプロキシ）
+            opencode: (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(
+              /\/+$/,
+              ""
+            ) + "/chat/completions"
           };
           const apiKey = apiKeyMap[provider];
           const baseUrl = baseUrlMap[provider];
@@ -10267,7 +10283,7 @@ ${knowledgeText}`;
         case "opencode":
           return await this._callOpenAICompatibleWithTools({
             label: "OpenCode Go",
-            baseUrl: OPENCODE_API_BASE_URL,
+            baseUrl: (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, "") + "/chat/completions",
             defaultModel: DEFAULT_OPENCODE_MODEL,
             getApiKey: /* @__PURE__ */ __name(() => state.settings.opencodeApiKey, "getApiKey"),
             missingKeyMessage: "OpenCode Go APIキーが設定されていません。",
@@ -13530,7 +13546,8 @@ ${msg}`);
       openrouter: OPENROUTER_API_BASE_URL,
       zai: ZAI_API_BASE_URL,
       sakana: SAKANA_API_BASE_URL,
-      opencode: OPENCODE_API_BASE_URL
+      // OpenCode Go は CORS 非対応のためプロキシ経由（未設定ならデフォルトプロキシ）
+      opencode: (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, "") + "/chat/completions"
     };
     return { apiKey: keys[provider], baseUrl: urls[provider] };
   }
@@ -15646,7 +15663,7 @@ ${pageText}
             { key: "deepseek", url: "https://api.deepseek.com/v1/models", apiKey: state.settings.deepseekApiKey },
             { key: "xai", url: "https://api.x.ai/v1/models", apiKey: state.settings.xaiApiKey },
             { key: "mistral", url: "https://api.mistral.ai/v1/models", apiKey: state.settings.mistralApiKey },
-            { key: "opencode", url: "https://opencode.ai/zen/go/v1/models", apiKey: state.settings.opencodeApiKey }
+            { key: "opencode", url: (state.settings.opencodeProxyUrl || "https://opencode-go-proxy.emerald-pencil.workers.dev").replace(/\/+$/, "") + "/models", apiKey: state.settings.opencodeApiKey }
           ];
           for (const p of compatList) {
             if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null);

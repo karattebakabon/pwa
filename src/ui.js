@@ -1147,6 +1147,12 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         if (elements.deepseekApiKeyInput) {
             elements.deepseekApiKeyInput.value = state.settings.deepseekApiKey || '';
         }
+        if (elements.opencodeApiKeyInput) {
+            elements.opencodeApiKeyInput.value = state.settings.opencodeApiKey || '';
+        }
+        if (elements.opencodeProxyUrlInput) {
+            elements.opencodeProxyUrlInput.value = state.settings.opencodeProxyUrl || '';
+        }
         if (elements.xaiApiKeyInput) {
             elements.xaiApiKeyInput.value = state.settings.xaiApiKey || '';
         }

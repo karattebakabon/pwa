@@ -8,7 +8,7 @@ import {
     OPENROUTER_API_BASE_URL,
     ZAI_API_BASE_URL,
     SAKANA_API_BASE_URL,
-    OPENCODE_API_BASE_URL,
+    DEFAULT_OPENCODE_PROXY_URL,
     DEFAULT_ANTHROPIC_MODEL,
 } from '../constants.js';
 import { dbUtils } from '../db.js';
@@ -42,7 +42,10 @@ function getOpenAICompatConfig(provider) {
         openrouter: OPENROUTER_API_BASE_URL,
         zai: ZAI_API_BASE_URL,
         sakana: SAKANA_API_BASE_URL,
-        opencode: OPENCODE_API_BASE_URL,
+        // OpenCode Go は CORS 非対応のためプロキシ経由（未設定ならデフォルトプロキシ）
+        opencode:
+            (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, '') +
+            '/chat/completions',
     };
     return { apiKey: keys[provider], baseUrl: urls[provider] };
 }
