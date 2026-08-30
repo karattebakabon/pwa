@@ -1615,6 +1615,8 @@ ${relationship_context}`;
       groqApiKeyContainer: document.getElementById("groq-api-key-container"),
       deepseekApiKeyInput: document.getElementById("deepseek-api-key"),
       deepseekApiKeyContainer: document.getElementById("deepseek-api-key-container"),
+      opencodeApiKeyInput: document.getElementById("opencode-api-key"),
+      opencodeApiKeyContainer: document.getElementById("opencode-api-key-container"),
       sakanaApiKeyInput: document.getElementById("sakana-api-key"),
       sakanaApiKeyContainer: document.getElementById("sakana-api-key-container"),
       xaiApiKeyInput: document.getElementById("xai-api-key"),
@@ -1876,6 +1878,7 @@ ${relationship_context}`;
   var XAI_API_BASE_URL = "https://api.x.ai/v1/chat/completions";
   var MISTRAL_API_BASE_URL = "https://api.mistral.ai/v1/chat/completions";
   var SAKANA_API_BASE_URL = "https://api.sakana.ai/v1/chat/completions";
+  var OPENCODE_API_BASE_URL = "https://opencode.ai/zen/go/v1/chat/completions";
   var DUPLICATE_SUFFIX = " (コピー)";
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
@@ -1985,11 +1988,20 @@ ${relationship_context}`;
   var DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
   function getAnthropicEffortLevels(model) {
     if (!model) return null;
-    const full = ["claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-fable-5", "claude-mythos-5"];
+    const full = [
+      "claude-opus-5",
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+      "claude-sonnet-5",
+      "claude-fable-5",
+      "claude-mythos-5"
+    ];
     if (full.some((p) => model.startsWith(p))) return ["", "low", "medium", "high", "xhigh", "max"];
-    if (model.startsWith("claude-opus-4-6") || model.startsWith("claude-sonnet-4-6")) return ["", "low", "medium", "high", "max"];
+    if (model.startsWith("claude-opus-4-6") || model.startsWith("claude-sonnet-4-6"))
+      return ["", "low", "medium", "high", "max"];
     if (model.startsWith("claude-opus-4-5")) return ["", "low", "medium", "high"];
-    if (model.startsWith("claude-haiku") || model.startsWith("claude-sonnet-4-5") || model.startsWith("claude-3") || model.startsWith("claude-2")) return [""];
+    if (model.startsWith("claude-haiku") || model.startsWith("claude-sonnet-4-5") || model.startsWith("claude-3") || model.startsWith("claude-2"))
+      return [""];
     return null;
   }
   __name(getAnthropicEffortLevels, "getAnthropicEffortLevels");
@@ -2011,6 +2023,24 @@ ${relationship_context}`;
     { value: "deepseek-reasoner", label: "DeepSeek Reasoner (R1)" }
   ];
   var DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
+  var OPENCODE_MODELS = [
+    { value: "gpt-5.6-sol", label: "GPT 5.6 Sol" },
+    { value: "gpt-5.5", label: "GPT 5.5" },
+    { value: "gpt-5.4", label: "GPT 5.4" },
+    { value: "gpt-5.4-mini", label: "GPT 5.4 Mini" },
+    { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+    { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+    { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+    { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+    { value: "deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+    { value: "deepseek-v4-flash", label: "DeepSeek V4 Flash" },
+    { value: "minimax-m3", label: "MiniMax M3" },
+    { value: "minimax-m2.7", label: "MiniMax M2.7" },
+    { value: "glm-5.2", label: "GLM 5.2" },
+    { value: "kimi-k2.7-code", label: "Kimi K2.7 Code" },
+    { value: "grok-4.6", label: "Grok 4.6" }
+  ];
+  var DEFAULT_OPENCODE_MODEL = "deepseek-v4-flash";
   var XAI_MODELS = [
     { value: "grok-4.6", label: "Grok 4.6 (推奨)" },
     { value: "grok-4.5", label: "Grok 4.5" },
@@ -2032,19 +2062,19 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
-    "1.53": [
+    1.53: [
       "Gemini のセンシティブフィルター設定を1箇所にまとめました。これまで同じ内容が6箇所（チャット送信・思考プロセスの翻訳・要約/メモリ学習・タイトル生成・校正）にコピーされていて、片方だけ直すと食い違う状態でした。内部の整理なので、フィルターの効き方はこれまでと変わりません。",
       "設定内容もこれまでどおり、調整できる4カテゴリ（ハラスメント・ヘイト・性的表現・危険な行為）すべてを BLOCK_NONE にしています。つまり以前から実質フィルターオフのままです。",
       "※ 児童安全に関わる内容など、中核的な危害への保護は設定に関係なく常にブロックされます（API側で固定されており、変更できません）。"
     ],
-    "1.52": [
+    1.52: [
       "提供が終了したモデルをモデル一覧から取り除き、各社の現行モデルに入れ替えました。Gemini は 2.0 Flash / 2.0 Flash-Lite と旧プレビュー版を外し、3.6 / 3.5 Flash・3.5 Flash-Lite・3.1 Flash-Lite・3 Flash（プレビュー）を追加しています。",
       "Groq と xAI は既定モデル自体が提供終了していて、選び直さないと最初のメッセージでエラーになる状態でした。Groq は GPT-OSS 120B、xAI は Grok 4.6 を既定にし、現行モデルへ入れ替えています。Claude と Bedrock も 3系（3.5 Sonnet / 3 Opus など）を外し、Sonnet 5 / Opus 4.6 / Haiku 4.5 などを追加しました。",
       "設定に廃止モデルが保存されたままでも、送信時に後継モデルを案内するようになりました（自動で切り替わるのは後継がはっきりしているものだけで、それ以外は必ず確認します）。",
       "画像生成モデルの判定を名前の形（〜-image）で行うようにしました。Nano Banana の後継（gemini-3.1-flash-image など）を「追加モデル」に入れても画像生成として扱われます。",
       "※ Groq の Llama 3.3 70B / 3.1 8B は廃止予定日を過ぎていますが、まだ一覧に載っているため残しています（ラベルに「廃止予定」と表示）。"
     ],
-    "1.51": [
+    1.51: [
       "モデル一覧で「追加モデル」が標準モデルより前（一覧の中途半端な位置）に出ていたのを直しました。これからは 標準モデル → 追加モデル → API取得モデル の順に並びます。",
       "※ 表示位置が変わるだけで、選べるモデルや★お気に入りの並び（常に先頭）は変わりません。"
     ],
@@ -2053,38 +2083,38 @@ ${relationship_context}`;
       "値下げ前に送ったメッセージは、これまでどおり当時の単価で計算します。過去のチャットの推定コストが後から下がって見えることはありません。",
       "※ OpenAI は「少なくとも2026年11月21日まで」の特別価格としています。期間が終わって元の単価に戻った場合は、あらためて対応が必要です。"
     ],
-    "1.49": [
+    1.49: [
       "DeepSeek の週末オフピーク（2026年8月23日 0:00 北京時間から）に対応しました。北京時間の土日は終日オフピーク単価になるため、ⓘ の推定コストも週末はピーク倍率をかけずに計算します。平日はこれまでどおりピーク／オフピークの区分が適用されます。",
       "※ 曜日は北京時間で判定します（日本時間とは1時間ずれるため、日本の土曜1:00〜日曜23:59 が週末扱いになります）。改定前に送ったメッセージは当時の規則のまま計算するので、過去のコストが変わることはありません。"
     ],
-    "1.48": [
+    1.48: [
       "OpenRouterを選んでいるときだけ★お気に入りが効かず、チャット画面のモデル一覧に出てこない不具合を修正しました。OpenRouterは他と選択肢の作り方が違い、一覧を作り直すときに★のグループごと消えていたためです。",
       "※ OpenRouterのモデルを一覧に出すには、設定の「OpenRouter 追加モデル (カンマ区切り)」にモデルIDを書いてください（モデル数が多いため自動取得はしていません）。書いたモデルは★で先頭に固定できます。"
     ],
-    "1.47": [
+    1.47: [
       "OpenRouter経由のモデルで思考プロセスが表示されない問題を修正しました。OpenRouterは思考を「reasoning」という項目で返すのに、アプリが「reasoning_content」（DeepSeek系の名前）しか見ていなかったため捨てられていました。あわせて、OpenRouterには思考を返すよう明示的に要求するようにしました（「Include Thoughts」がONのとき）。",
       "思考の長さは、Gemini・Claudeと同じ「Thinking Budget」の値をそのまま使います（空欄なら指定なし）。"
     ],
-    "1.46": [
+    1.46: [
       "プロジェクト管理で下へスクロールすると、閉じる（✕）ボタンが画面外へ流れて押せなくなっていたのを修正しました。タイトルと✕を上部に固定し、中身だけがスクロールするようにしています。"
     ],
-    "1.45": [
+    1.45: [
       "PCの広い画面で、ダイアログの右側に大きな空白ができていた問題を修正しました。ブラウザ標準の <dialog> が持つ配置指定と噛み合わず、すべてのダイアログが「画面幅のちょうど半分」に引き伸ばされていたためです。中身の量に合わせた幅で表示されるようになりました。"
     ],
-    "1.44": [
+    1.44: [
       "プロジェクト管理の画面が崩れていたのを修正しました。この画面だけ他のダイアログと違うスタイルが当たっておらず、ブラウザ標準の見た目（黒い枠）のまま画面からはみ出し、スマホでは下の方が切れて見えない状態でした。",
       "ナレッジのファイルを削除するときに確認を出すようにしました。編集ボタンのすぐ隣にあって押し間違えやすく、しかも元に戻せないためです。"
     ],
-    "1.43": [
+    1.43: [
       "【重要】ページが再読み込みされると、選んでいたモデルが既定のモデル（Claude Sonnet 4.6 など）に勝手に変わってしまう不具合を修正しました。タイムアウトなどで再読み込みが起きるたびに発生していたため、気づかないまま別のモデルで会話が続き、想定より料金がかかることがありました。",
       "※ モデルが変わるとプロンプトキャッシュも切れるため、Anthropic利用時は再読み込みのたびに履歴全体が再課金されていました。この修正で解消されます。",
       "プロバイダーを切り替えて戻したときに、そのプロバイダーで最後に選んでいたモデルへ戻るようになりました（これまでは設定画面から選んだ分が記録されず、既定のモデルに戻っていました）。"
     ],
-    "1.42": [
+    1.42: [
       "Gemini 3.7 Flash に対応しました。モデル選択から選べます。2026年12月31日までは半額（入力$0.75／出力$3.75／キャッシュヒット$0.075、100万トークンあたり）で、2027年1月1日から通常単価（それぞれ2倍）に戻ります。ⓘ の推定コストは日付に応じて自動で切り替わります。",
       "Gemini 3.6 Flash の推定コストが実際の2倍になっていた問題を修正しました。3.6 Flash も 3.7 Flash と同じく2026年内は半額のため、割引を反映して計算します。"
     ],
-    "1.41": [
+    1.41: [
       "全チャットを横断した使用量サマリーを追加しました。ⓘ（会話の統計）の「全チャットの使用量」ボタンから開けます。今月／先月／過去30日／全期間で切り替えられ、推定コスト・メッセージ数・入出力トークンの合計と、モデル別の内訳が見られます。DeepSeekはピーク時間帯にかかった分も別途表示します。",
       "※ 端末内の履歴からの推定です。削除したチャットや、同期していない端末の分は含まれません。正確な請求額は各社の使用量ページ（同じくⓘから開けます）でご確認ください。",
       "※ 金額を計算できるのは料金表を持つモデル（Claude / GPT-5系・4.1系・o3系 / Gemini 3.x・2.5系 / DeepSeek / Grok 4.6）だけです。それ以外のモデルはトークン数のみ表示し、金額欄は「—」になります。",
@@ -2099,24 +2129,24 @@ ${relationship_context}`;
       "改定前に送ったメッセージは、これまでどおり旧料金で計算します。過去のチャットの推定コストが後から跳ね上がって見えることはありません。",
       "※ ピーク時間帯（日本時間 10:00-13:00 / 15:00-19:00 は2倍）は改定後も変わりません。"
     ],
-    "1.35": [
+    1.35: [
       "配色プリセットを追加。設定の「配色プリセット」から、藍墨・青磁・灰桜・墨・琥珀の5種類（各ライト/ダーク対応）にワンタップで切り替えられます。ClaudeDesignで作成したテンプレートを移植しました。"
     ],
-    "1.34": [
+    1.34: [
       "【重要】Dropbox同期で設定が巻き戻る不具合を修正。プロファイルのマージが「常にクラウド優先」だったため、ローカルで変更した設定（思考の深さ(Effort)など）が自動同期のたびに古い内容へ戻っていました。チャットやプロジェクトと同じく「更新が新しい方を優先」に変更しています。",
       "思考の深さ(Effort)を「OFF（思考なし）」にしていても、再読み込み後に設定画面上で「high」に戻って見える不具合を修正しました。",
       "※ 上記により、Anthropicのプロンプトキャッシュが設定の巻き戻りで無駄に切れることがなくなります（ページ再読み込み自体ではキャッシュは切れません）。"
     ],
-    "1.33": [
+    1.33: [
       "思考の深さ(Effort)を、選択中のClaudeモデルで使えるレベルだけ表示するように改善。xhighはOpus 4.7以降、Effort自体はOpus 4.6以降/Sonnet 4.6のみ対応で、非対応のモデルでは自動的に選べなくなり、注意書きも表示されます。非対応レベルが設定に残っていてもAPI送信時に対応レベルへ自動調整するため400エラーになりません（※Opus 4.8 は max も xhigh も使えます）。"
     ],
-    "1.32": [
+    1.32: [
       "Claude Opus 5 に対応。Anthropicのモデル一覧に「Claude Opus 5 / 4.8」を追加しました。",
       "Anthropic新世代モデル（Opus 4.7/4.8/5 等）で temperature が廃止され送ると400エラーになる問題に対応（該当モデルでは temperature を送信しないよう修正）。これまで Opus 4.7 選択時に失敗し得た不具合も解消。",
       "思考の深さ(Effort)に「xhigh（高品質・コーディング向け）」を追加。Opus 5 で選べる5段階（low/medium/high/xhigh/max）に対応しました。",
       "Opus 5 は思考がデフォルトONのため、Effort「OFF」を選んだときは明示的に思考を停止するよう修正（意図せず思考が走るのを防止）。"
     ],
-    "1.31": [
+    1.31: [
       "モデルの★お気に入りを追加。設定のモデル名の横の★ボタンで、よく使うモデルを登録できます。お気に入りはドロップダウンの先頭「★ お気に入り」グループに固定表示され、チャットヘッダーのモデル選択にも反映されるので素早く選べます（プロバイダーごとに表示）。"
     ],
     "1.30": [
@@ -2234,6 +2264,7 @@ ${relationship_context}`;
       xaiApiKey: "",
       mistralApiKey: "",
       sakanaApiKey: "",
+      opencodeApiKey: "",
       modelName: DEFAULT_MODEL,
       systemPrompt: "",
       temperature: null,
@@ -4501,7 +4532,9 @@ Reason: [NGの場合の理由]`,
         const activeIdSetting = await dbUtils.getSetting("activeProfileId");
         state.activeProfileId = activeIdSetting ? activeIdSetting.value : null;
         if (state.profiles.length === 0) {
-          console.warn("[Profile] プロファイルが見つかりません。最初のプロファイルを作成します。");
+          console.warn(
+            "[Profile] プロファイルが見つかりません。最初のプロファイルを作成します。"
+          );
           const newProfile = {
             name: "デフォルトプロファイル",
             icon: null,
@@ -4516,20 +4549,29 @@ Reason: [NGの場合の理由]`,
         if (!state.activeProfileId || !state.profiles.some((p) => p.id === state.activeProfileId)) {
           state.activeProfileId = state.profiles[0].id;
           await dbUtils.saveSetting("activeProfileId", state.activeProfileId);
-          console.log(`[Profile] アクティブなプロファイルが無効でした。最初のプロファイル (ID: ${state.activeProfileId}) をアクティブに設定しました。`);
+          console.log(
+            `[Profile] アクティブなプロファイルが無効でした。最初のプロファイル (ID: ${state.activeProfileId}) をアクティブに設定しました。`
+          );
         }
-        console.log(`[Profile] ${state.profiles.length}件のプロファイルを読み込みました。アクティブID: ${state.activeProfileId}`);
+        console.log(
+          `[Profile] ${state.profiles.length}件のプロファイルを読み込みました。アクティブID: ${state.activeProfileId}`
+        );
         this.applyActiveProfile();
         uiUtils.updateProfileSwitcherUI();
       } catch (error) {
-        console.error("[Profile] プロファイルの読み込み中に致命的なエラーが発生しました:", error);
+        console.error(
+          "[Profile] プロファイルの読み込み中に致命的なエラーが発生しました:",
+          error
+        );
         await uiUtils.showCustomAlert(`プロファイルの読み込みに失敗しました: ${error}`);
       }
     },
     applyActiveProfile() {
       state.activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
       if (state.activeProfile) {
-        console.log(`[Profile] プロファイル「${state.activeProfile.name}」(ID: ${state.activeProfile.id}) を適用します。`);
+        console.log(
+          `[Profile] プロファイル「${state.activeProfile.name}」(ID: ${state.activeProfile.id}) を適用します。`
+        );
         const newSettings = { ...window.state.settings };
         const globalFetchedModels = newSettings.fetchedModels;
         const loadedProfileSettings = state.activeProfile.settings || {};
@@ -4542,21 +4584,24 @@ Reason: [NGの場合の理由]`,
           if (current && RETIRED_MODEL_MAP[current]) {
             const replacement = RETIRED_MODEL_MAP[current];
             state.settings[key] = replacement;
-            if (state.activeProfile.settings) state.activeProfile.settings[key] = replacement;
+            if (state.activeProfile.settings)
+              state.activeProfile.settings[key] = replacement;
             migratedRetiredModel = true;
-            console.log(`[Profile] 提供終了モデル ${current} を ${replacement} に移行しました（${key}）。`);
+            console.log(
+              `[Profile] 提供終了モデル ${current} を ${replacement} に移行しました（${key}）。`
+            );
           }
         }
         if (migratedRetiredModel) {
-          dbUtils.updateProfile(state.activeProfile).catch(
-            (e) => console.error("[Profile] 移行後のプロファイル保存に失敗:", e)
-          );
+          dbUtils.updateProfile(state.activeProfile).catch((e) => console.error("[Profile] 移行後のプロファイル保存に失敗:", e));
         }
         uiUtils.applySettingsToUI();
         uiUtils.updateProfileCardUI();
         DebugLogger.init();
       } else {
-        console.error(`[Profile] 適用すべきアクティブなプロファイル (ID: ${state.activeProfileId}) が見つかりません。`);
+        console.error(
+          `[Profile] 適用すべきアクティブなプロファイル (ID: ${state.activeProfileId}) が見つかりません。`
+        );
       }
     },
     async switchProfile(newProfileId) {
@@ -4570,9 +4615,14 @@ Reason: [NGの場合の理由]`,
     },
     async saveNewProfile() {
       if (state.profiles.length >= MAX_PROFILES) {
-        return uiUtils.showCustomAlert(`プロファイルの上限数（${MAX_PROFILES}個）に達しているため、新しいプロファイルを作成できません。`);
+        return uiUtils.showCustomAlert(
+          `プロファイルの上限数（${MAX_PROFILES}個）に達しているため、新しいプロファイルを作成できません。`
+        );
       }
-      const profileName = await uiUtils.showCustomPrompt("新しいプロファイル名を入力してください:", "新規プロファイル");
+      const profileName = await uiUtils.showCustomPrompt(
+        "新しいプロファイル名を入力してください:",
+        "新規プロファイル"
+      );
       if (!profileName || !profileName.trim()) {
         console.log("[Profile] 新規保存をキャンセルしました。");
         return;
@@ -4626,7 +4676,9 @@ Reason: [NGの場合の理由]`,
         await uiUtils.showCustomAlert("最後のプロファイルは削除できません。");
         return;
       }
-      const confirmed = await uiUtils.showCustomConfirm(`本当にプロファイル「${state.activeProfile.name}」を削除しますか？`);
+      const confirmed = await uiUtils.showCustomConfirm(
+        `本当にプロファイル「${state.activeProfile.name}」を削除しますか？`
+      );
       if (!confirmed) return;
       try {
         const idToDelete = state.activeProfileId;
@@ -4650,7 +4702,10 @@ Reason: [NGの場合の理由]`,
     },
     async editCurrentProfileName() {
       if (!state.activeProfile) return;
-      const newName = await uiUtils.showCustomPrompt("新しいプロファイル名:", state.activeProfile.name);
+      const newName = await uiUtils.showCustomPrompt(
+        "新しいプロファイル名:",
+        state.activeProfile.name
+      );
       if (newName && newName.trim() && newName.trim() !== state.activeProfile.name) {
         state.activeProfile.name = newName.trim();
         await this.updateCurrentProfile();
@@ -4662,7 +4717,9 @@ Reason: [NGの場合の理由]`,
         const oldUrl = state.profileIconUrls.get(state.activeProfile.id);
         URL.revokeObjectURL(oldUrl);
         state.profileIconUrls.delete(state.activeProfile.id);
-        console.log(`[Profile] 古いアイコンキャッシュを破棄しました (ID: ${state.activeProfile.id})`);
+        console.log(
+          `[Profile] 古いアイコンキャッシュを破棄しました (ID: ${state.activeProfile.id})`
+        );
       }
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -4688,9 +4745,73 @@ Reason: [NGの場合の理由]`,
     },
     getCurrentUiSettings() {
       const settings = {};
-      const stringKeys = ["apiProvider", "apiKey", "zaiApiKey", "openrouterApiKey", "bedrockAccessKey", "bedrockSecretKey", "bedrockRegion", "openaiApiKey", "anthropicApiKey", "anthropicCacheTTL", "anthropicEffort", "novelaiApiKey", "novelaiModel", "groqApiKey", "deepseekApiKey", "xaiApiKey", "mistralApiKey", "sakanaApiKey", "modelName", "dummyUser", "dummyModel", "additionalModels", "historySortOrder", "fontFamily", "proofreadingModelName", "proofreadingSystemInstruction", "googleSearchApiKey", "googleSearchEngineId", "headerColor", "thoughtTranslationModel", "summaryModelName", "summarySystemPrompt"];
-      const numberKeys = ["temperature", "maxTokens", "topK", "topP", "thinkingBudget", "maxRetries", "maxBackoffDelaySeconds", "overlayOpacity", "messageOpacity"];
-      const booleanKeys = ["enterToSend", "darkMode", "geminiEnableGrounding", "geminiEnableFunctionCalling", "enableSwipeNavigation", "enableProofreading", "enableAutoRetry", "useFixedRetryDelay", "reverseDummyOrder", "concatDummyModel", "dummyEnabled", "includeThoughts", "enableThoughtTranslation", "applyDummyToProofread", "applyDummyToTranslate", "forceFunctionCalling", "autoScroll", "enableWideMode", "enableSummaryButton"];
+      const stringKeys = [
+        "apiProvider",
+        "apiKey",
+        "zaiApiKey",
+        "openrouterApiKey",
+        "bedrockAccessKey",
+        "bedrockSecretKey",
+        "bedrockRegion",
+        "openaiApiKey",
+        "anthropicApiKey",
+        "anthropicCacheTTL",
+        "anthropicEffort",
+        "novelaiApiKey",
+        "novelaiModel",
+        "groqApiKey",
+        "deepseekApiKey",
+        "xaiApiKey",
+        "mistralApiKey",
+        "sakanaApiKey",
+        "opencodeApiKey",
+        "modelName",
+        "dummyUser",
+        "dummyModel",
+        "additionalModels",
+        "historySortOrder",
+        "fontFamily",
+        "proofreadingModelName",
+        "proofreadingSystemInstruction",
+        "googleSearchApiKey",
+        "googleSearchEngineId",
+        "headerColor",
+        "thoughtTranslationModel",
+        "summaryModelName",
+        "summarySystemPrompt"
+      ];
+      const numberKeys = [
+        "temperature",
+        "maxTokens",
+        "topK",
+        "topP",
+        "thinkingBudget",
+        "maxRetries",
+        "maxBackoffDelaySeconds",
+        "overlayOpacity",
+        "messageOpacity"
+      ];
+      const booleanKeys = [
+        "enterToSend",
+        "darkMode",
+        "geminiEnableGrounding",
+        "geminiEnableFunctionCalling",
+        "enableSwipeNavigation",
+        "enableProofreading",
+        "enableAutoRetry",
+        "useFixedRetryDelay",
+        "reverseDummyOrder",
+        "concatDummyModel",
+        "dummyEnabled",
+        "includeThoughts",
+        "enableThoughtTranslation",
+        "applyDummyToProofread",
+        "applyDummyToTranslate",
+        "forceFunctionCalling",
+        "autoScroll",
+        "enableWideMode",
+        "enableSummaryButton"
+      ];
       settings.systemPrompt = elements.systemPromptDefaultTextarea.value.trim();
       settings.fixedRetryDelaySeconds = parseFloat(elements.fixedRetryDelayInput.value) || null;
       settings.hideSystemPromptInChat = elements.hideSystemPromptToggle.checked;
@@ -4767,7 +4888,9 @@ Reason: [NGの場合の理由]`,
       reader.onload = async (event) => {
         try {
           if (state.profiles.length >= MAX_PROFILES) {
-            return uiUtils.showCustomAlert(`プロファイルの上限数（${MAX_PROFILES}個）に達しているため、プロファイルをインポートできません。`);
+            return uiUtils.showCustomAlert(
+              `プロファイルの上限数（${MAX_PROFILES}個）に達しているため、プロファイルをインポートできません。`
+            );
           }
           const importedData = JSON.parse(event.target.result);
           if (!importedData.name || !importedData.settings) {
@@ -4776,7 +4899,10 @@ Reason: [NGの場合の理由]`,
           let newProfile = { ...importedData };
           if (newProfile.icon && newProfile.icon.data) {
             try {
-              newProfile.icon = await this.base64ToBlob(newProfile.icon.data, newProfile.icon.mimeType);
+              newProfile.icon = await this.base64ToBlob(
+                newProfile.icon.data,
+                newProfile.icon.mimeType
+              );
             } catch (error) {
               console.error("インポート時のアイコン復元に失敗:", error);
               newProfile.icon = null;
@@ -4799,7 +4925,9 @@ Reason: [NGの場合の理由]`,
           await uiUtils.showCustomAlert(`プロファイル「${finalName}」をインポートしました。`);
         } catch (error) {
           console.error("プロファイルのインポートに失敗:", error);
-          await uiUtils.showCustomAlert(`プロファイルのインポートに失敗しました: ${error.message}`);
+          await uiUtils.showCustomAlert(
+            `プロファイルのインポートに失敗しました: ${error.message}`
+          );
         }
       };
       reader.readAsText(file);
@@ -4820,7 +4948,9 @@ Reason: [NGの場合の理由]`,
         const durationMs = minutes * 60 * 1e3;
         const endTime = Date.now() + durationMs;
         const timerId = setTimeout(() => {
-          console.log(`タイマー「${name}」が時間切れになりました。自動応答をトリガーします。`);
+          console.log(
+            `タイマー「${name}」が時間切れになりました。自動応答をトリガーします。`
+          );
           delete this.timers[name];
           appLogic.triggerTimerExpiredResponse(name);
         }, durationMs);
@@ -4835,7 +4965,11 @@ Reason: [NGの場合の理由]`,
         }
         const remainingMs = this.timers[name].endTime - Date.now();
         if (remainingMs <= 0) {
-          return { success: true, status: "expired", message: `タイマー「${name}」は既に時間切れです。` };
+          return {
+            success: true,
+            status: "expired",
+            message: `タイマー「${name}」は既に時間切れです。`
+          };
         }
         const remainingMinutes = Math.floor(remainingMs / 6e4);
         const remainingSeconds = Math.floor(remainingMs % 6e4 / 1e3);
@@ -4855,9 +4989,9 @@ Reason: [NGの場合の理由]`,
       }
     },
     /**
-    * タイマー時間切れ時にAIに応答を促す関数
-    * @param {string} timerName - 時間切れになったタイマーの名前
-    */
+     * タイマー時間切れ時にAIに応答を促す関数
+     * @param {string} timerName - 時間切れになったタイマーの名前
+     */
     async triggerTimerExpiredResponse(timerName) {
       if (state.isSending) {
         console.warn("タイマーが切れましたが、現在送信中のため自動応答をスキップします。");
@@ -4880,7 +5014,9 @@ Reason: [NGの場合の理由]`,
       state.currentMessages.push(userMessage);
       const messageIndex = state.currentMessages.length - 1;
       uiUtils.appendMessage(userMessage.role, userMessage.content, messageIndex);
-      const messageElement = elements.messageContainer.querySelector(`.message[data-index="${messageIndex}"]`);
+      const messageElement = elements.messageContainer.querySelector(
+        `.message[data-index="${messageIndex}"]`
+      );
       if (messageElement) {
         messageElement.style.display = "none";
       }
@@ -4897,7 +5033,9 @@ Reason: [NGの場合の理由]`,
         if (msg.isHidden) return;
         if (msg.isCascaded && msg.siblingGroupId) {
           if (!processedGroupIds.has(msg.siblingGroupId)) {
-            const siblings = state.currentMessages.filter((m) => m.siblingGroupId === msg.siblingGroupId && !m.isHidden);
+            const siblings = state.currentMessages.filter(
+              (m) => m.siblingGroupId === msg.siblingGroupId && !m.isHidden
+            );
             const selectedSibling = siblings.find((m) => m.isSelected) || siblings[siblings.length - 1];
             if (selectedSibling) {
               visibleMessages.push(selectedSibling);
@@ -4916,7 +5054,12 @@ Reason: [NGの場合の理由]`,
       if (!profileToUpdate) return;
       const now = /* @__PURE__ */ new Date();
       const getPacificDate = /* @__PURE__ */ __name((date) => {
-        const options = { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" };
+        const options = {
+          timeZone: "America/Los_Angeles",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        };
         const formatter = new Intl.DateTimeFormat("en-CA", options);
         return formatter.format(date);
       }, "getPacificDate");
@@ -4927,7 +5070,9 @@ Reason: [NGの場合の理由]`,
       profileToUpdate.apiUsage.count++;
       try {
         await dbUtils.updateProfile(profileToUpdate);
-        console.log(`[API Count] Profile ${profileId} の使用回数を更新しました。 Count for ${todayPacific}: ${profileToUpdate.apiUsage.count}`);
+        console.log(
+          `[API Count] Profile ${profileId} の使用回数を更新しました。 Count for ${todayPacific}: ${profileToUpdate.apiUsage.count}`
+        );
         this.updateApiUsageUI();
         uiUtils.updateProfileSwitcherUI();
       } catch (error) {
@@ -4938,7 +5083,12 @@ Reason: [NGの場合の理由]`,
       console.log("[API Count] 全プロファイルのAPI使用回数リセットチェックを開始します...");
       const now = /* @__PURE__ */ new Date();
       const getPacificDate = /* @__PURE__ */ __name((date) => {
-        const options = { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" };
+        const options = {
+          timeZone: "America/Los_Angeles",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        };
         const formatter = new Intl.DateTimeFormat("en-CA", options);
         return formatter.format(date);
       }, "getPacificDate");
@@ -4946,13 +5096,18 @@ Reason: [NGの場合の理由]`,
       let profilesWereUpdated = false;
       for (const profile of state.profiles) {
         if (profile.apiUsage && profile.apiUsage.date !== todayPacific) {
-          console.log(`[API Count] プロファイル「${profile.name}」(ID: ${profile.id}) の日付が古いため (${profile.apiUsage.date})、使用回数をリセットします。`);
+          console.log(
+            `[API Count] プロファイル「${profile.name}」(ID: ${profile.id}) の日付が古いため (${profile.apiUsage.date})、使用回数をリセットします。`
+          );
           delete profile.apiUsage;
           try {
             await dbUtils.updateProfile(profile);
             profilesWereUpdated = true;
           } catch (error) {
-            console.error(`[API Count] プロファイルID ${profile.id} のリセット保存に失敗:`, error);
+            console.error(
+              `[API Count] プロファイルID ${profile.id} のリセット保存に失敗:`,
+              error
+            );
           }
         }
       }
@@ -4993,6 +5148,7 @@ Reason: [NGの場合の理由]`,
       const isXAI = provider === "xai";
       const isMistral = provider === "mistral";
       const isSakana = provider === "sakana";
+      const isOpencode = provider === "opencode";
       const containers = [
         [elements.geminiApiKeyContainer, isGemini],
         [elements.zaiApiKeyContainer, isZai],
@@ -5004,7 +5160,8 @@ Reason: [NGの場合の理由]`,
         [elements.deepseekApiKeyContainer, isDeepSeek],
         [elements.xaiApiKeyContainer, isXAI],
         [elements.mistralApiKeyContainer, isMistral],
-        [elements.sakanaApiKeyContainer, isSakana]
+        [elements.sakanaApiKeyContainer, isSakana],
+        [elements.opencodeApiKeyContainer, isOpencode]
       ];
       containers.forEach(([el, show]) => {
         if (el) el.classList.toggle("hidden", !show);
@@ -5055,7 +5212,9 @@ Reason: [NGの場合の理由]`,
           Array.from(orSelect.querySelectorAll("optgroup")).forEach((group) => {
             if (group.id !== "user-defined-models-group") group.remove();
           });
-          Array.from(orSelect.querySelectorAll("option:not([data-user-defined])")).forEach((o) => o.remove());
+          Array.from(orSelect.querySelectorAll("option:not([data-user-defined])")).forEach(
+            (o) => o.remove()
+          );
           this.applyFavoriteModelsGroup(orSelect);
         }
         if (elements.openrouterModelInput) {
@@ -5097,6 +5256,8 @@ Reason: [NGの場合の理由]`,
         models = MISTRAL_MODELS;
       } else if (provider === "sakana") {
         models = SAKANA_MODELS;
+      } else if (provider === "opencode") {
+        models = OPENCODE_MODELS;
       } else {
         models = GEMINI_MODELS;
       }
@@ -5167,7 +5328,9 @@ Reason: [NGの場合の理由]`,
       } else {
         defaultModel = DEFAULT_MODEL;
       }
-      const allAvailableValues = Array.from(modelSelect.querySelectorAll("option")).map((o) => o.value);
+      const allAvailableValues = Array.from(modelSelect.querySelectorAll("option")).map(
+        (o) => o.value
+      );
       const { model, isFallback } = resolveSelectedModel({
         savedModel: state.settings && state.settings.modelName || currentValue,
         availableValues: allAvailableValues,
@@ -5182,7 +5345,9 @@ Reason: [NGの場合の理由]`,
     // アプリ初期化
     async initializeApp() {
       const isSyncReload = sessionStorage.getItem("isSyncReload") === "true";
-      uiUtils.showProgressDialog(isSyncReload ? "データベースを準備中..." : "初期化処理を開始中...");
+      uiUtils.showProgressDialog(
+        isSyncReload ? "データベースを準備中..." : "初期化処理を開始中..."
+      );
       setupBroadcastChannel();
       let versionNoticeData = null;
       try {
@@ -5190,9 +5355,14 @@ Reason: [NGの場合の理由]`,
         if (pendingNoticeRaw) {
           try {
             versionNoticeData = JSON.parse(pendingNoticeRaw);
-            console.log(`[VersionNotice] ペンディング通知を検出しました。version=${versionNoticeData.version}`);
+            console.log(
+              `[VersionNotice] ペンディング通知を検出しました。version=${versionNoticeData.version}`
+            );
           } catch (parseError) {
-            console.error("[VersionNotice] ペンディング通知の解析に失敗しました。削除して再生成します。", parseError);
+            console.error(
+              "[VersionNotice] ペンディング通知の解析に失敗しました。削除して再生成します。",
+              parseError
+            );
             sessionStorage.removeItem(VERSION_NOTICE_SESSION_KEY);
             versionNoticeData = null;
           }
@@ -5201,7 +5371,9 @@ Reason: [NGの場合の理由]`,
           const acknowledgedVersion = localStorage.getItem(VERSION_ACK_STORAGE_KEY);
           const legacyVersion = localStorage.getItem(VERSION_LEGACY_STORAGE_KEY);
           const currentVersion = APP_VERSION;
-          console.log(`[VersionNotice] バージョンチェック開始。ack=${acknowledgedVersion ?? "none"}, legacy=${legacyVersion ?? "none"}, current=${currentVersion}`);
+          console.log(
+            `[VersionNotice] バージョンチェック開始。ack=${acknowledgedVersion ?? "none"}, legacy=${legacyVersion ?? "none"}, current=${currentVersion}`
+          );
           const shouldShowNotice = !acknowledgedVersion || acknowledgedVersion !== currentVersion || legacyVersion && legacyVersion !== currentVersion;
           if (shouldShowNotice) {
             const newFeatures = VERSION_HISTORY[currentVersion];
@@ -5214,10 +5386,17 @@ Reason: [NGの場合の理由]`,
               message,
               shouldPersist: true
             };
-            sessionStorage.setItem(VERSION_NOTICE_SESSION_KEY, JSON.stringify(versionNoticeData));
-            console.log(`[VersionNotice] 新しいバージョン通知を作成しました。(ack=${acknowledgedVersion ?? "none"}, legacy=${legacyVersion ?? "none"})`);
+            sessionStorage.setItem(
+              VERSION_NOTICE_SESSION_KEY,
+              JSON.stringify(versionNoticeData)
+            );
+            console.log(
+              `[VersionNotice] 新しいバージョン通知を作成しました。(ack=${acknowledgedVersion ?? "none"}, legacy=${legacyVersion ?? "none"})`
+            );
           } else {
-            console.log("[VersionNotice] 既に最新バージョンが確認済みのため通知をスキップします。");
+            console.log(
+              "[VersionNotice] 既に最新バージョンが確認済みのため通知をスキップします。"
+            );
           }
         }
       } catch (e) {
@@ -5260,7 +5439,9 @@ Reason: [NGの場合の理由]`,
             request.onsuccess = () => resolve(new Set(request.result));
             request.onerror = (e) => reject(e.target.error);
           });
-          console.log(`[Cleanup] image_storeには ${allStoredImageIds.size}件の画像が存在します。`);
+          console.log(
+            `[Cleanup] image_storeには ${allStoredImageIds.size}件の画像が存在します。`
+          );
           const orphanImageIds = [];
           allStoredImageIds.forEach((storedId) => {
             if (!activeImageIds.has(storedId)) {
@@ -5268,7 +5449,10 @@ Reason: [NGの場合の理由]`,
             }
           });
           if (orphanImageIds.length > 0) {
-            console.log(`[Cleanup] ${orphanImageIds.length}件の孤児画像を削除します。`, orphanImageIds);
+            console.log(
+              `[Cleanup] ${orphanImageIds.length}件の孤児画像を削除します。`,
+              orphanImageIds
+            );
             const tx = state.db.transaction(IMAGE_STORE, "readwrite");
             const store = tx.objectStore(IMAGE_STORE);
             orphanImageIds.forEach((id) => store.delete(id));
@@ -5286,7 +5470,10 @@ Reason: [NGの場合の理由]`,
           console.log("[Cleanup] 孤児画像データのクリーンアップは既に完了しています。");
         }
       } catch (error) {
-        console.error("[Cleanup] 孤児画像データのクリーンアップ中にエラーが発生しました:", error);
+        console.error(
+          "[Cleanup] 孤児画像データのクリーンアップ中にエラーが発生しました:",
+          error
+        );
       }
       const handleAuthCallback = /* @__PURE__ */ __name(async () => {
         console.log("[SYNC_DEBUG] handleAuthCallback: 開始");
@@ -5305,7 +5492,9 @@ Reason: [NGの場合の理由]`,
             await window.dropboxApi.getAccessToken(authCode, REDIRECT_URI, codeVerifier);
             console.log("Dropbox連携に成功し、トークンを保存しました。");
             await this.updateDropboxUIState();
-            console.log("[SYNC_DEBUG] handleAuthCallback: 初回連携のため、handlePull(true)を呼び出します。");
+            console.log(
+              "[SYNC_DEBUG] handleAuthCallback: 初回連携のため、handlePull(true)を呼び出します。"
+            );
             await this.handlePull(true);
             console.log("[SYNC_DEBUG] handleAuthCallback: handlePullが完了しました。");
           } catch (error) {
@@ -5344,28 +5533,31 @@ Reason: [NGの場合の理由]`,
         getChat: /* @__PURE__ */ __name(async (id) => console.log(await dbUtils.getChat(id || state.currentChatId)), "getChat")
       };
       registerServiceWorker();
-      this.imageObserver = new IntersectionObserver(async (entries, observer) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            const imageId = img.dataset.imageId;
-            observer.unobserve(img);
-            const imageData = await this.getImageBlobById(imageId);
-            if (imageData && imageData.blob) {
-              if (imageData.width && imageData.height) {
-                img.width = imageData.width;
-                img.height = imageData.height;
+      this.imageObserver = new IntersectionObserver(
+        async (entries, observer) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              const imageId = img.dataset.imageId;
+              observer.unobserve(img);
+              const imageData = await this.getImageBlobById(imageId);
+              if (imageData && imageData.blob) {
+                if (imageData.width && imageData.height) {
+                  img.width = imageData.width;
+                  img.height = imageData.height;
+                }
+                const objectURL = URL.createObjectURL(imageData.blob);
+                img.src = objectURL;
+                img.alt = "生成された画像";
+              } else {
+                img.alt = "画像の読み込みに失敗しました";
+                img.classList.add("load-error");
               }
-              const objectURL = URL.createObjectURL(imageData.blob);
-              img.src = objectURL;
-              img.alt = "生成された画像";
-            } else {
-              img.alt = "画像の読み込みに失敗しました";
-              img.classList.add("load-error");
             }
           }
-        }
-      }, { rootMargin: "200px" });
+        },
+        { rootMargin: "200px" }
+      );
       const mutationObserver = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
           if (mutation.type === "childList") {
@@ -5374,10 +5566,14 @@ Reason: [NGの場合の理由]`,
               if (node.tagName === "IMG" && node.src.startsWith("blob:")) {
                 imagesToRevoke.push(node);
               } else if (node.querySelectorAll) {
-                node.querySelectorAll('img[src^="blob:"]').forEach((img) => imagesToRevoke.push(img));
+                node.querySelectorAll('img[src^="blob:"]').forEach(
+                  (img) => imagesToRevoke.push(img)
+                );
               }
               imagesToRevoke.forEach((img) => {
-                console.log(`[Memory] DOMから削除された画像のURLを解放します: ${img.src}`);
+                console.log(
+                  `[Memory] DOMから削除された画像のURLを解放します: ${img.src}`
+                );
                 URL.revokeObjectURL(img.src);
               });
             });
@@ -5400,8 +5596,13 @@ Reason: [NGの場合の理由]`,
           const lockData = await window.dropboxApi.checkLockFile();
           if (lockData && lockData.operation) {
             recoveryFlowExecuted = true;
-            console.warn(`[Sync Recovery] 同期ロックファイルを検出。中断された操作: ${lockData.operation}`);
-            this.updateSyncStatusUI("syncing", `中断された${lockData.operation === "push" ? "同期" : "復元"}を再開中...`);
+            console.warn(
+              `[Sync Recovery] 同期ロックファイルを検出。中断された操作: ${lockData.operation}`
+            );
+            this.updateSyncStatusUI(
+              "syncing",
+              `中断された${lockData.operation === "push" ? "同期" : "復元"}を再開中...`
+            );
             if (lockData.operation === "push") {
               state.sync.isDirty = true;
               await this.handlePush(false);
@@ -5410,7 +5611,9 @@ Reason: [NGの場合の理由]`,
             }
           } else if (lockData) {
             recoveryFlowExecuted = true;
-            console.warn("[Sync Recovery] 操作タイプ不明のロックファイルを検出。ユーザーに選択を促します。");
+            console.warn(
+              "[Sync Recovery] 操作タイプ不明のロックファイルを検出。ユーザーに選択を促します。"
+            );
             const choice = await this.showRecoveryDialog();
             if (choice === "pull") {
               await this.handlePull(true);
@@ -5423,10 +5626,14 @@ Reason: [NGの場合の理由]`,
           }
         }
         if (!new URLSearchParams(window.location.search).has("code") && !recoveryFlowExecuted) {
-          console.log("[SYNC_DEBUG] initializeApp: 通常起動のため、handlePull(false)を呼び出します。");
+          console.log(
+            "[SYNC_DEBUG] initializeApp: 通常起動のため、handlePull(false)を呼び出します。"
+          );
           await this.handlePull(false);
         } else {
-          console.log("[SYNC_DEBUG] initializeApp: OAuthコールバックまたは復旧フローが実行されたため、通常のPullはスキップします。");
+          console.log(
+            "[SYNC_DEBUG] initializeApp: OAuthコールバックまたは復旧フローが実行されたため、通常のPullはスキップします。"
+          );
         }
         await this.updateDropboxUIState();
         const profiles = await dbUtils.getAllProfiles();
@@ -5438,14 +5645,21 @@ Reason: [NGの場合の理由]`,
             request.onerror = (e) => reject(e.target.error);
           });
           if (oldSettingsArray.length > 0) {
-            console.log("[Migration] プロファイルが存在せず、古い設定データが見つかったため移行処理を実行します。");
+            console.log(
+              "[Migration] プロファイルが存在せず、古い設定データが見つかったため移行処理を実行します。"
+            );
             const oldSettingsObject = {};
             oldSettingsArray.forEach((item) => {
               oldSettingsObject[item.key] = item.value;
             });
             const initialProfileSettings = { ...state.settings, ...oldSettingsObject };
             delete initialProfileSettings.backgroundImageBlob;
-            const defaultProfile = { name: "デフォルトプロファイル", icon: null, createdAt: Date.now(), settings: initialProfileSettings };
+            const defaultProfile = {
+              name: "デフォルトプロファイル",
+              icon: null,
+              createdAt: Date.now(),
+              settings: initialProfileSettings
+            };
             const newId = await dbUtils.addProfile(defaultProfile);
             await new Promise((resolve, reject) => {
               const store = dbUtils._getStore(SETTINGS_STORE, "readwrite");
@@ -5498,13 +5712,17 @@ Reason: [NGの場合の理由]`,
         sessionStorage.removeItem("isSyncReload");
         if (versionNoticeData && versionNoticeData.message) {
           try {
-            console.log(`[VersionNotice] 通知を表示します。version=${versionNoticeData.version}`);
+            console.log(
+              `[VersionNotice] 通知を表示します。version=${versionNoticeData.version}`
+            );
             await uiUtils.showCustomAlert(versionNoticeData.message);
             console.log("[VersionNotice] 通知がユーザーによって確認されました。");
             if (versionNoticeData.shouldPersist) {
               localStorage.setItem(VERSION_ACK_STORAGE_KEY, versionNoticeData.version);
               localStorage.setItem(VERSION_LEGACY_STORAGE_KEY, versionNoticeData.version);
-              console.log(`[VersionNotice] バージョン ${versionNoticeData.version} をACK/LEGACYキーに保存しました。`);
+              console.log(
+                `[VersionNotice] バージョン ${versionNoticeData.version} をACK/LEGACYキーに保存しました。`
+              );
             }
           } catch (versionAlertError) {
             console.error("[VersionNotice] 通知の表示に失敗しました:", versionAlertError);
@@ -5523,8 +5741,14 @@ Reason: [NGの場合の理由]`,
       this._setupEventListenersCallCount++;
       elements.gotoHistoryBtn.addEventListener("click", () => uiUtils.showScreen("history"));
       elements.gotoSettingsBtn.addEventListener("click", () => uiUtils.showScreen("settings"));
-      elements.backToChatFromHistoryBtn.addEventListener("click", () => uiUtils.showScreen("chat"));
-      elements.backToChatFromSettingsBtn.addEventListener("click", () => uiUtils.showScreen("chat"));
+      elements.backToChatFromHistoryBtn.addEventListener(
+        "click",
+        () => uiUtils.showScreen("chat")
+      );
+      elements.backToChatFromSettingsBtn.addEventListener(
+        "click",
+        () => uiUtils.showScreen("chat")
+      );
       const restoreFromCloudBtn = document.getElementById("restore-from-cloud-btn");
       if (restoreFromCloudBtn && !restoreFromCloudBtn._bound) {
         restoreFromCloudBtn._bound = true;
@@ -5566,8 +5790,14 @@ Reason: [NGの場合の理由]`,
           this.cancelEditSystemPrompt();
         }
       });
-      elements.saveSystemPromptBtn.addEventListener("click", () => this.saveCurrentSystemPrompt());
-      elements.cancelSystemPromptBtn.addEventListener("click", () => this.cancelEditSystemPrompt());
+      elements.saveSystemPromptBtn.addEventListener(
+        "click",
+        () => this.saveCurrentSystemPrompt()
+      );
+      elements.cancelSystemPromptBtn.addEventListener(
+        "click",
+        () => this.cancelEditSystemPrompt()
+      );
       elements.profileCardHeader.addEventListener("click", (e) => {
         e.stopPropagation();
         uiUtils.toggleProfileMenu("header");
@@ -5599,14 +5829,19 @@ Reason: [NGの場合の理由]`,
       elements.profileSaveNewBtn.addEventListener("click", () => this.saveNewProfile());
       elements.profileDeleteBtn.addEventListener("click", () => this.deleteCurrentProfile());
       elements.profileExportBtn.addEventListener("click", () => this.exportProfile());
-      elements.profileImportBtn.addEventListener("click", () => elements.profileImportInput.click());
+      elements.profileImportBtn.addEventListener(
+        "click",
+        () => elements.profileImportInput.click()
+      );
       elements.profileImportInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (file) this.importProfile(file);
         e.target.value = null;
       });
       document.getElementById("reset-api-count-btn").addEventListener("click", async () => {
-        const confirmed = await uiUtils.showCustomConfirm("API使用回数のカウントを0にリセットしますか？");
+        const confirmed = await uiUtils.showCustomConfirm(
+          "API使用回数のカウントを0にリセットしますか？"
+        );
         if (confirmed) {
           const profile = state.activeProfile;
           if (profile) {
@@ -5615,7 +5850,9 @@ Reason: [NGの場合の理由]`,
               try {
                 await dbUtils.updateProfile(profile);
                 this.markAsDirtyAndSchedulePush("structural");
-                console.log(`[API Count] カウンターが手動でリセットされました (Profile ID: ${profile.id})`);
+                console.log(
+                  `[API Count] カウンターが手動でリセットされました (Profile ID: ${profile.id})`
+                );
                 this.updateApiUsageUI();
                 uiUtils.updateProfileSwitcherUI();
               } catch (error) {
@@ -5689,15 +5926,28 @@ Reason: [NGの場合の理由]`,
         bedrockRegion: { element: elements.bedrockRegionSelect, event: "change" },
         openaiApiKey: { element: elements.openaiApiKeyInput, event: "input" },
         anthropicApiKey: { element: elements.anthropicApiKeyInput, event: "input" },
-        anthropicCacheTTL: { element: elements.anthropicCacheTTLSelect, event: "change", getValue: /* @__PURE__ */ __name(() => elements.anthropicCacheTTLSelect ? elements.anthropicCacheTTLSelect.value : "5m", "getValue") },
-        anthropicEffort: { element: elements.anthropicEffortSelect, event: "change", getValue: /* @__PURE__ */ __name(() => elements.anthropicEffortSelect ? elements.anthropicEffortSelect.value : "high", "getValue") },
+        anthropicCacheTTL: {
+          element: elements.anthropicCacheTTLSelect,
+          event: "change",
+          getValue: /* @__PURE__ */ __name(() => elements.anthropicCacheTTLSelect ? elements.anthropicCacheTTLSelect.value : "5m", "getValue")
+        },
+        anthropicEffort: {
+          element: elements.anthropicEffortSelect,
+          event: "change",
+          getValue: /* @__PURE__ */ __name(() => elements.anthropicEffortSelect ? elements.anthropicEffortSelect.value : "high", "getValue")
+        },
         novelaiApiKey: { element: elements.novelaiApiKeyInput, event: "input" },
-        novelaiModel: { element: elements.novelaiModelSelect, event: "change", getValue: /* @__PURE__ */ __name(() => elements.novelaiModelSelect ? elements.novelaiModelSelect.value : "nai-diffusion-4-5-curated", "getValue") },
+        novelaiModel: {
+          element: elements.novelaiModelSelect,
+          event: "change",
+          getValue: /* @__PURE__ */ __name(() => elements.novelaiModelSelect ? elements.novelaiModelSelect.value : "nai-diffusion-4-5-curated", "getValue")
+        },
         groqApiKey: { element: elements.groqApiKeyInput, event: "input" },
         deepseekApiKey: { element: elements.deepseekApiKeyInput, event: "input" },
         xaiApiKey: { element: elements.xaiApiKeyInput, event: "input" },
         mistralApiKey: { element: elements.mistralApiKeyInput, event: "input" },
         sakanaApiKey: { element: elements.sakanaApiKeyInput, event: "input" },
+        opencodeApiKey: { element: elements.opencodeApiKeyInput, event: "input" },
         modelName: {
           element: elements.modelNameSelect,
           event: "change",
@@ -5740,31 +5990,71 @@ Reason: [NGの場合の理由]`,
         topP: { element: elements.topPInput, event: "input" },
         thinkingBudget: { element: elements.thinkingBudgetInput, event: "input" },
         includeThoughts: { element: elements.includeThoughtsToggle, event: "change" },
-        enableThoughtTranslation: { element: elements.enableThoughtTranslationCheckbox, event: "change" },
-        thoughtTranslationModel: { element: elements.thoughtTranslationModelSelect, event: "change" },
+        enableThoughtTranslation: {
+          element: elements.enableThoughtTranslationCheckbox,
+          event: "change"
+        },
+        thoughtTranslationModel: {
+          element: elements.thoughtTranslationModelSelect,
+          event: "change"
+        },
         dummyUser: { element: elements.dummyUserInput, event: "input" },
         dummyEnabled: { element: elements.dummyEnabledToggle, event: "change" },
-        applyDummyToProofread: { element: elements.applyDummyToProofreadCheckbox, event: "change" },
-        applyDummyToTranslate: { element: elements.applyDummyToTranslateCheckbox, event: "change" },
+        applyDummyToProofread: {
+          element: elements.applyDummyToProofreadCheckbox,
+          event: "change"
+        },
+        applyDummyToTranslate: {
+          element: elements.applyDummyToTranslateCheckbox,
+          event: "change"
+        },
         dummyModel: { element: elements.dummyModelInput, event: "input" },
         reverseDummyOrder: { element: elements.reverseDummyOrderCheckbox, event: "change" },
         concatDummyModel: { element: elements.concatDummyModelCheckbox, event: "change" },
         additionalModels: { element: elements.additionalModelsTextarea, event: "input" },
         enterToSend: { element: elements.enterToSendCheckbox, event: "change" },
         historySortOrder: { element: elements.historySortOrderSelect, event: "change" },
-        darkMode: { element: elements.darkModeToggle, event: "change", onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyDarkMode(), "onUpdate") },
-        debugMode: { element: elements.debugModeToggle, event: "change", onUpdate: /* @__PURE__ */ __name((value) => {
-          DebugLogger.init();
-          this.toggleDebugLogButtonVisibility(value);
-        }, "onUpdate") },
-        fontFamily: { element: elements.fontFamilyInput, event: "input", onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyFontFamily(), "onUpdate") },
-        hideSystemPromptInChat: { element: elements.hideSystemPromptToggle, event: "change", onUpdate: /* @__PURE__ */ __name(() => uiUtils.toggleSystemPromptVisibility(), "onUpdate") },
-        geminiEnableGrounding: { element: elements.geminiEnableGroundingToggle, event: "change" },
-        geminiEnableFunctionCalling: { element: elements.geminiEnableFunctionCallingToggle, event: "change" },
+        darkMode: {
+          element: elements.darkModeToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyDarkMode(), "onUpdate")
+        },
+        debugMode: {
+          element: elements.debugModeToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name((value) => {
+            DebugLogger.init();
+            this.toggleDebugLogButtonVisibility(value);
+          }, "onUpdate")
+        },
+        fontFamily: {
+          element: elements.fontFamilyInput,
+          event: "input",
+          onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyFontFamily(), "onUpdate")
+        },
+        hideSystemPromptInChat: {
+          element: elements.hideSystemPromptToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => uiUtils.toggleSystemPromptVisibility(), "onUpdate")
+        },
+        geminiEnableGrounding: {
+          element: elements.geminiEnableGroundingToggle,
+          event: "change"
+        },
+        geminiEnableFunctionCalling: {
+          element: elements.geminiEnableFunctionCallingToggle,
+          event: "change"
+        },
         enableSwipeNavigation: { element: elements.swipeNavigationToggle, event: "change" },
         enableProofreading: { element: elements.enableProofreadingCheckbox, event: "change" },
-        proofreadingModelName: { element: elements.proofreadingModelNameSelect, event: "change" },
-        proofreadingSystemInstruction: { element: elements.proofreadingSystemInstructionTextarea, event: "input" },
+        proofreadingModelName: {
+          element: elements.proofreadingModelNameSelect,
+          event: "change"
+        },
+        proofreadingSystemInstruction: {
+          element: elements.proofreadingSystemInstructionTextarea,
+          event: "input"
+        },
         enableAutoRetry: { element: elements.enableAutoRetryCheckbox, event: "change" },
         maxRetries: { element: elements.maxRetriesInput, event: "input" },
         useFixedRetryDelay: { element: elements.useFixedRetryDelayCheckbox, event: "change" },
@@ -5774,21 +6064,63 @@ Reason: [NGの場合の理由]`,
         apiTimeoutSeconds: { element: elements.apiTimeoutSecondsInput, event: "input" },
         googleSearchApiKey: { element: elements.googleSearchApiKeyInput, event: "input" },
         googleSearchEngineId: { element: elements.googleSearchEngineIdInput, event: "input" },
-        overlayOpacity: { element: elements.overlayOpacitySlider, event: "input", onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyOverlayOpacity(), "onUpdate") },
-        messageOpacity: { element: elements.messageOpacitySlider, event: "input", onUpdate: /* @__PURE__ */ __name((value) => document.documentElement.style.setProperty("--message-bubble-opacity", String(value)), "onUpdate") },
-        headerColor: { element: elements.headerColorInput, event: "input", onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyHeaderColor(), "onUpdate") },
-        colorPreset: { element: elements.colorPresetSelect, event: "change", onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyColorPreset(), "onUpdate") },
+        overlayOpacity: {
+          element: elements.overlayOpacitySlider,
+          event: "input",
+          onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyOverlayOpacity(), "onUpdate")
+        },
+        messageOpacity: {
+          element: elements.messageOpacitySlider,
+          event: "input",
+          onUpdate: /* @__PURE__ */ __name((value) => document.documentElement.style.setProperty(
+            "--message-bubble-opacity",
+            String(value)
+          ), "onUpdate")
+        },
+        headerColor: {
+          element: elements.headerColorInput,
+          event: "input",
+          onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyHeaderColor(), "onUpdate")
+        },
+        colorPreset: {
+          element: elements.colorPresetSelect,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => uiUtils.applyColorPreset(), "onUpdate")
+        },
         forceFunctionCalling: { element: elements.forceFunctionCallingToggle, event: "change" },
         autoScroll: { element: elements.autoScrollToggle, event: "change" },
-        enableWideMode: { element: elements.enableWideModeToggle, event: "change", onUpdate: /* @__PURE__ */ __name(() => this.applyWideMode(), "onUpdate") },
-        enableMemory: { element: elements.enableMemoryToggle, event: "change", onUpdate: /* @__PURE__ */ __name((value) => this.toggleMemoryOptions(value), "onUpdate") },
-        memoryAutoSaveInterval: { element: elements.memoryAutoSaveIntervalSelect, event: "change" },
-        headerAutoHide: { element: elements.headerAutoHideToggle, event: "change", onUpdate: /* @__PURE__ */ __name((value) => document.body.classList.toggle("header-auto-hide", value), "onUpdate") },
+        enableWideMode: {
+          element: elements.enableWideModeToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => this.applyWideMode(), "onUpdate")
+        },
+        enableMemory: {
+          element: elements.enableMemoryToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name((value) => this.toggleMemoryOptions(value), "onUpdate")
+        },
+        memoryAutoSaveInterval: {
+          element: elements.memoryAutoSaveIntervalSelect,
+          event: "change"
+        },
+        headerAutoHide: {
+          element: elements.headerAutoHideToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name((value) => document.body.classList.toggle("header-auto-hide", value), "onUpdate")
+        },
         dropboxSyncFrequency: { element: elements.dropboxSyncFrequencySelect, event: "change" },
         summaryModelName: { element: elements.summaryModelNameSelect, event: "change" },
         summarySystemPrompt: { element: elements.summarySystemPromptTextarea, event: "input" },
-        enableSummaryButton: { element: elements.enableSummaryButtonToggle, event: "change", onUpdate: /* @__PURE__ */ __name(() => this.toggleSummaryButtonVisibility(), "onUpdate") },
-        floatingPanelBehavior: { element: elements.floatingPanelBehaviorSelect, event: "change", onUpdate: /* @__PURE__ */ __name(() => this.applyFloatingPanelBehavior(), "onUpdate") },
+        enableSummaryButton: {
+          element: elements.enableSummaryButtonToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => this.toggleSummaryButtonVisibility(), "onUpdate")
+        },
+        floatingPanelBehavior: {
+          element: elements.floatingPanelBehaviorSelect,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => this.applyFloatingPanelBehavior(), "onUpdate")
+        },
         sdApiUrl: { element: elements.sdApiUrlInput, event: "input" },
         sdApiUser: { element: elements.sdApiUserInput, event: "input" },
         sdApiPassword: { element: elements.sdApiPasswordInput, event: "input" },
@@ -5803,7 +6135,10 @@ Reason: [NGの場合の理由]`,
         sdQcPrompt: { element: elements.sdQcPromptTextarea, event: "input" },
         sdQcRetries: { element: elements.sdQcRetriesInput, event: "input" },
         sdPromptImproveModel: { element: elements.sdPromptImproveModelSelect, event: "change" },
-        sdPromptImproveSystemPrompt: { element: elements.sdPromptImproveSystemPromptTextarea, event: "input" }
+        sdPromptImproveSystemPrompt: {
+          element: elements.sdPromptImproveSystemPromptTextarea,
+          event: "input"
+        }
       };
       for (const key in settingsMap) {
         const { element, event, onUpdate, getValue } = settingsMap[key];
@@ -5841,11 +6176,20 @@ Reason: [NGの場合の理由]`,
         uiUtils.renderHistoryList();
         elements.historySearchInput.focus();
       });
-      elements.closeMemoryDialogBtn.addEventListener("click", () => elements.memoryManagementDialog.close());
+      elements.closeMemoryDialogBtn.addEventListener(
+        "click",
+        () => elements.memoryManagementDialog.close()
+      );
       elements.addMemoryBtn.addEventListener("click", () => this.addMemoryItem());
       elements.deleteAllMemoryBtn.addEventListener("click", () => this.confirmDeleteAllMemory());
-      elements.characterProfileBtn.addEventListener("click", () => this.openCharacterProfileDialog());
-      elements.closeProfileDialogBtn.addEventListener("click", () => elements.characterProfileDialog.close());
+      elements.characterProfileBtn.addEventListener(
+        "click",
+        () => this.openCharacterProfileDialog()
+      );
+      elements.closeProfileDialogBtn.addEventListener(
+        "click",
+        () => elements.characterProfileDialog.close()
+      );
       elements.profileBackBtn.addEventListener("click", () => {
         elements.characterProfileDialog.classList.remove("details-visible");
       });
@@ -5855,7 +6199,10 @@ Reason: [NGの場合の理由]`,
       elements.messageOpacitySlider.addEventListener("input", (event) => {
         elements.messageOpacityValue.textContent = `${event.target.value}%`;
       });
-      elements.importHistoryBtn.addEventListener("click", () => elements.importHistoryInput.click());
+      elements.importHistoryBtn.addEventListener(
+        "click",
+        () => elements.importHistoryInput.click()
+      );
       elements.importHistoryInput.addEventListener("change", (event) => {
         const file = event.target.files[0];
         if (file) this.handleHistoryImport(file);
@@ -5874,13 +6221,19 @@ Reason: [NGの場合の理由]`,
         const isEnabled = elements.enableProofreadingCheckbox.checked;
         elements.proofreadingOptionsDiv.classList.toggle("hidden", !isEnabled);
       });
-      elements.uploadBackgroundBtn.addEventListener("click", () => elements.backgroundImageInput.click());
+      elements.uploadBackgroundBtn.addEventListener(
+        "click",
+        () => elements.backgroundImageInput.click()
+      );
       elements.backgroundImageInput.addEventListener("change", (event) => {
         const file = event.target.files[0];
         if (file) this.handleBackgroundImageUpload(file);
         event.target.value = null;
       });
-      elements.deleteBackgroundBtn.addEventListener("click", () => this.confirmDeleteBackgroundImage());
+      elements.deleteBackgroundBtn.addEventListener(
+        "click",
+        () => this.confirmDeleteBackgroundImage()
+      );
       elements.resetHeaderColorBtn.addEventListener("click", () => {
         state.settings.headerColor = "";
         elements.headerColorInput.value = state.settings.darkMode ? "#908675" : "#908675";
@@ -5897,14 +6250,18 @@ Reason: [NGの場合の理由]`,
           }
         }
       });
-      document.body.addEventListener("click", (event) => {
-        if (!elements.messageContainer.contains(event.target)) {
-          const currentlyShown = elements.messageContainer.querySelector(".message.show-actions");
-          if (currentlyShown) {
-            currentlyShown.classList.remove("show-actions");
+      document.body.addEventListener(
+        "click",
+        (event) => {
+          if (!elements.messageContainer.contains(event.target)) {
+            const currentlyShown = elements.messageContainer.querySelector(".message.show-actions");
+            if (currentlyShown) {
+              currentlyShown.classList.remove("show-actions");
+            }
           }
-        }
-      }, true);
+        },
+        true
+      );
       if ("visualViewport" in window) {
         window.visualViewport.addEventListener("resize", this.updateZoomState.bind(this));
         window.visualViewport.addEventListener("scroll", this.updateZoomState.bind(this));
@@ -5997,7 +6354,10 @@ Reason: [NGの場合の理由]`,
         });
       }
       elements.enableAutoRetryCheckbox.addEventListener("change", () => {
-        elements.autoRetryOptionsDiv.classList.toggle("hidden", !elements.enableAutoRetryCheckbox.checked);
+        elements.autoRetryOptionsDiv.classList.toggle(
+          "hidden",
+          !elements.enableAutoRetryCheckbox.checked
+        );
       });
       elements.useFixedRetryDelayCheckbox.addEventListener("change", () => {
         const useFixed = elements.useFixedRetryDelayCheckbox.checked;
@@ -6010,7 +6370,9 @@ Reason: [NGの場合の理由]`,
       window.addEventListener("beforeunload", () => {
         const revokeUrls = /* @__PURE__ */ __name((cache, name) => {
           if (cache.size > 0) {
-            console.log(`[Memory] ページ離脱のため、${cache.size}個の${name}URLを解放します。`);
+            console.log(
+              `[Memory] ページ離脱のため、${cache.size}個の${name}URLを解放します。`
+            );
             for (const url of cache.values()) {
               if (url.startsWith("blob:")) {
                 URL.revokeObjectURL(url);
@@ -6031,7 +6393,10 @@ Reason: [NGの場合の理由]`,
         event.target.value = null;
       });
       elements.manageAssetsBtn.addEventListener("click", () => this.openAssetManagementDialog());
-      elements.closeAssetDialogBtn.addEventListener("click", () => elements.assetManagementDialog.close());
+      elements.closeAssetDialogBtn.addEventListener(
+        "click",
+        () => elements.assetManagementDialog.close()
+      );
       elements.deleteAllAssetsBtn.addEventListener("click", () => this.confirmDeleteAllAssets());
       elements.floatingPanelBehaviorSelect.addEventListener("change", () => {
         state.settings.floatingPanelBehavior = elements.floatingPanelBehaviorSelect.value;
@@ -6046,10 +6411,19 @@ Reason: [NGの場合の理由]`,
       elements.usageRangeTabs?.forEach((tab) => {
         tab.addEventListener("click", () => this.showUsageSummary(tab.dataset.range));
       });
-      elements.usageSummaryCloseBtn?.addEventListener("click", () => elements.usageSummaryDialog.close());
-      elements.chatStatsCloseBtn.addEventListener("click", () => elements.chatStatsDialog.close());
+      elements.usageSummaryCloseBtn?.addEventListener(
+        "click",
+        () => elements.usageSummaryDialog.close()
+      );
+      elements.chatStatsCloseBtn.addEventListener(
+        "click",
+        () => elements.chatStatsDialog.close()
+      );
       elements.summarizeHistoryBtn.addEventListener("click", () => this.startSummaryProcess());
-      elements.summaryCancelBtn.addEventListener("click", () => elements.summaryDialog.close("cancel"));
+      elements.summaryCancelBtn.addEventListener(
+        "click",
+        () => elements.summaryDialog.close("cancel")
+      );
       elements.summaryRegenerateBtn.addEventListener("click", () => this.regenerateSummary());
       elements.summaryConfirmBtn.addEventListener("click", () => this.confirmSummary());
       const mainContent = elements.chatScreen.querySelector(".main-content");
@@ -6070,7 +6444,10 @@ Reason: [NGの場合の理由]`,
           this.showActionPanel();
         }
       });
-      elements.floatingActionPanel.addEventListener("mouseenter", () => clearTimeout(state.panelFadeOutTimer));
+      elements.floatingActionPanel.addEventListener(
+        "mouseenter",
+        () => clearTimeout(state.panelFadeOutTimer)
+      );
       elements.floatingActionPanel.addEventListener("mouseleave", () => this.showActionPanel());
       elements.scrollToTopBtn.addEventListener("click", () => this.scrollToTop());
       elements.scrollToBottomBtn.addEventListener("click", () => this.scrollToBottom(true));
@@ -6078,8 +6455,14 @@ Reason: [NGの場合の理由]`,
         elements.scrollBottomFab.addEventListener("click", () => this.scrollToBottom(true));
       }
       if (elements.userInput) {
-        elements.userInput.addEventListener("focus", () => document.body.classList.add("input-focused"));
-        elements.userInput.addEventListener("blur", () => document.body.classList.remove("input-focused"));
+        elements.userInput.addEventListener(
+          "focus",
+          () => document.body.classList.add("input-focused")
+        );
+        elements.userInput.addEventListener(
+          "blur",
+          () => document.body.classList.remove("input-focused")
+        );
       }
       if (elements.rangeImageSaveBtn) {
         elements.rangeImageSaveBtn.addEventListener("click", () => this.enterRangeImageMode());
@@ -6088,7 +6471,10 @@ Reason: [NGの場合の理由]`,
         elements.rangeImageCancelBtn.addEventListener("click", () => this.exitRangeImageMode());
       }
       if (elements.rangeImageSaveConfirmBtn) {
-        elements.rangeImageSaveConfirmBtn.addEventListener("click", () => this.confirmRangeImageSave());
+        elements.rangeImageSaveConfirmBtn.addEventListener(
+          "click",
+          () => this.confirmRangeImageSave()
+        );
       }
       if (elements.messageContainer) {
         elements.messageContainer.addEventListener(
@@ -6110,7 +6496,9 @@ Reason: [NGの場合の理由]`,
       window.addEventListener("online", () => {
         console.log("[Network] オンライン状態に復帰しました。同期状態を確認します。");
         if (state.sync.isDirty || state.sync.lastError) {
-          console.log("[Sync] 同期が必要な変更、またはエラーが検出されたため、自動Pushを実行します。");
+          console.log(
+            "[Sync] 同期が必要な変更、またはエラーが検出されたため、自動Pushを実行します。"
+          );
           this.handlePush();
         }
       });
@@ -6144,7 +6532,9 @@ Reason: [NGの場合の理由]`,
         try {
           const cloudMetadataString = await window.dropboxApi.downloadMetadata();
           if (!cloudMetadataString) {
-            console.log("[Manual Sync] クラウドにデータがありません。Push処理を実行します。");
+            console.log(
+              "[Manual Sync] クラウドにデータがありません。Push処理を実行します。"
+            );
             uiUtils.updateProgressMessage("初回データをクラウドに保存中...");
             state.sync.isSyncing = false;
             await this._doPush(true);
@@ -6153,7 +6543,9 @@ Reason: [NGの場合の理由]`,
           const cloudData = JSON.parse(cloudMetadataString);
           const cloudSyncId = cloudData.syncId;
           const localSyncId = state.sync.lastSyncId;
-          console.log(`[Manual Sync] Cloud syncId: ${cloudSyncId}, Local syncId: ${localSyncId}`);
+          console.log(
+            `[Manual Sync] Cloud syncId: ${cloudSyncId}, Local syncId: ${localSyncId}`
+          );
           if (cloudSyncId !== localSyncId) {
             console.log("[Manual Sync] syncIdが異なります。Pull処理を実行します。");
             uiUtils.updateProgressMessage("他のブラウザのデータの変更を同期中...");
@@ -6167,13 +6559,19 @@ Reason: [NGの場合の理由]`,
           const cloudAssetsList = await window.dropboxApi.listAssets();
           const localAssetCount = localAssets.size;
           const cloudAssetCount = cloudAssetsList.length;
-          console.log(`[Manual Sync] Local asset count: ${localAssetCount}, Cloud asset count: ${cloudAssetCount}`);
+          console.log(
+            `[Manual Sync] Local asset count: ${localAssetCount}, Cloud asset count: ${cloudAssetCount}`
+          );
           if (localAssetCount !== cloudAssetCount || state.sync.isDirty) {
             if (state.sync.isDirty) {
-              console.log("[Manual Sync] ローカルに変更（isDirty=true）があるため、Push処理を実行します。");
+              console.log(
+                "[Manual Sync] ローカルに変更（isDirty=true）があるため、Push処理を実行します。"
+              );
               uiUtils.updateProgressMessage("ローカルの変更を同期中...");
             } else {
-              console.log("[Manual Sync] アセット数が一致しないため、Push処理でクラウドの状態を調整します。");
+              console.log(
+                "[Manual Sync] アセット数が一致しないため、Push処理でクラウドの状態を調整します。"
+              );
               uiUtils.updateProgressMessage("クラウドの状態を調整中...");
             }
             state.sync.isSyncing = false;
@@ -6203,7 +6601,9 @@ Reason: [NGの場合の理由]`,
         });
       });
       elements.dropboxRestoreBtn.addEventListener("click", async () => {
-        const confirmed = await uiUtils.showCustomConfirm("クラウドのデータでローカルを上書きします。ローカルの変更は失われます。続けますか？");
+        const confirmed = await uiUtils.showCustomConfirm(
+          "クラウドのデータでローカルを上書きします。ローカルの変更は失われます。続けますか？"
+        );
         if (!confirmed) return;
         try {
           await appLogic.forceRestoreFromCloud();
@@ -6213,7 +6613,9 @@ Reason: [NGの場合の理由]`,
         }
       });
       elements.dropboxDisconnectBtn.addEventListener("click", async () => {
-        const confirmed = await uiUtils.showCustomConfirm("Dropboxとの連携を解除しますか？同期されなくなります。");
+        const confirmed = await uiUtils.showCustomConfirm(
+          "Dropboxとの連携を解除しますか？同期されなくなります。"
+        );
         if (confirmed) {
           try {
             await window.dropboxApi.disconnect();
@@ -6264,11 +6666,15 @@ Reason: [NGの場合の理由]`,
             }
           }
         });
-        elements.appHeader.addEventListener("touchstart", () => {
-          if (state.settings.headerAutoHide) {
-            clearTimeout(headerHideTimer);
-          }
-        }, { passive: true });
+        elements.appHeader.addEventListener(
+          "touchstart",
+          () => {
+            if (state.settings.headerAutoHide) {
+              clearTimeout(headerHideTimer);
+            }
+          },
+          { passive: true }
+        );
       }
       const resetHeaderVisibility = /* @__PURE__ */ __name(() => {
         document.body.classList.remove("header-force-show");
@@ -6300,11 +6706,15 @@ Reason: [NGの場合の理由]`,
                 }
               }
               this.markAsDirtyAndSchedulePush("structural");
-              await uiUtils.showCustomAlert(`${chatsToDelete.length}件の古いチャットを削除しました。`);
+              await uiUtils.showCustomAlert(
+                `${chatsToDelete.length}件の古いチャットを削除しました。`
+              );
               await uiUtils.renderHistoryList();
             } catch (error) {
               console.error("古いチャットの一括削除エラー:", error);
-              await uiUtils.showCustomAlert(`削除中にエラーが発生しました: ${error.message}`);
+              await uiUtils.showCustomAlert(
+                `削除中にエラーが発生しました: ${error.message}`
+              );
             } finally {
               uiUtils.hideProgressDialog();
             }
@@ -6326,13 +6736,17 @@ Reason: [NGの場合の理由]`,
           if (response.ok) {
             await uiUtils.showCustomAlert("接続に成功しました！");
           } else {
-            throw new Error(`サーバーからの応答が不正です (ステータス: ${response.status})`);
+            throw new Error(
+              `サーバーからの応答が不正です (ステータス: ${response.status})`
+            );
           }
         } catch (error) {
           console.error("SD接続テストエラー:", error);
-          await uiUtils.showCustomAlert(`接続に失敗しました。
+          await uiUtils.showCustomAlert(
+            `接続に失敗しました。
 URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認してください。
-エラー: ${error.message}`);
+エラー: ${error.message}`
+          );
         }
       });
       elements.sdEnableQualityCheckerCheckbox.addEventListener("change", (event) => {
@@ -6355,7 +6769,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
         console.log(`[popstate] same screen -> ignore: ${targetScreen}`);
         return;
       }
-      console.log(`popstate event fired: Navigating to screen '${targetScreen}' from history state.`);
+      console.log(
+        `popstate event fired: Navigating to screen '${targetScreen}' from history state.`
+      );
       uiUtils.showScreen(targetScreen, true);
     },
     // ズーム状態を更新
@@ -6442,11 +6858,15 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
     // アプリを更新 (キャッシュクリア)
     async updateApp() {
       if (!("serviceWorker" in navigator)) {
-        const doReload = await uiUtils.showCustomConfirm("お使いのブラウザはService Workerをサポートしていません。\nページを強制リロードして最新版を取得しますか？");
+        const doReload = await uiUtils.showCustomConfirm(
+          "お使いのブラウザはService Workerをサポートしていません。\nページを強制リロードして最新版を取得しますか？"
+        );
         if (doReload) window.location.reload(true);
         return;
       }
-      const confirmed = await uiUtils.showCustomConfirm("アプリのキャッシュをクリアして最新版を再取得しますか？ (ページがリロードされます)");
+      const confirmed = await uiUtils.showCustomConfirm(
+        "アプリのキャッシュをクリアして最新版を再取得しますか？ (ページがリロードされます)"
+      );
       if (!confirmed) return;
       try {
         const cacheNames = await caches.keys();
@@ -6461,12 +6881,16 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
     },
     // 全データ削除の確認と実行
     async confirmClearAllData() {
-      const confirmed = await uiUtils.showCustomConfirm("本当にすべてのデータ（チャット履歴、プロファイル、アセット、設定）を削除しますか？この操作は元に戻せません。");
+      const confirmed = await uiUtils.showCustomConfirm(
+        "本当にすべてのデータ（チャット履歴、プロファイル、アセット、設定）を削除しますか？この操作は元に戻せません。"
+      );
       if (confirmed) {
         try {
           uiUtils.revokeExistingObjectUrl();
           await dbUtils.clearAllData();
-          await uiUtils.showCustomAlert("すべてのデータが削除されました。アプリをリセットします。");
+          await uiUtils.showCustomAlert(
+            "すべてのデータが削除されました。アプリをリセットします。"
+          );
           window.location.reload();
         } catch (error) {
           await uiUtils.showCustomAlert(`データ削除中にエラーが発生しました: ${error}`);
@@ -6500,14 +6924,21 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
       if (typeof opacitySettings.overlay === "number" && opacitySettings.overlay >= 0 && opacitySettings.overlay <= 1) {
         state.settings.overlayOpacity = opacitySettings.overlay;
         await dbUtils.saveSetting("overlayOpacity", state.settings.overlayOpacity);
-        document.documentElement.style.setProperty("--overlay-opacity-value", state.settings.overlayOpacity);
-        changedItems.push(`オーバーレイの濃さを${Math.round(opacitySettings.overlay * 100)}%に`);
+        document.documentElement.style.setProperty(
+          "--overlay-opacity-value",
+          state.settings.overlayOpacity
+        );
+        changedItems.push(
+          `オーバーレイの濃さを${Math.round(opacitySettings.overlay * 100)}%に`
+        );
         settingsChanged = true;
       }
       if (typeof opacitySettings.message_bubble === "number" && opacitySettings.message_bubble >= 0.1 && opacitySettings.message_bubble <= 1) {
         state.settings.messageOpacity = opacitySettings.message_bubble;
         await dbUtils.saveSetting("messageOpacity", state.settings.messageOpacity);
-        changedItems.push(`メッセージバブルの濃さを${Math.round(opacitySettings.message_bubble * 100)}%に`);
+        changedItems.push(
+          `メッセージバブルの濃さを${Math.round(opacitySettings.message_bubble * 100)}%に`
+        );
         settingsChanged = true;
       }
       if (settingsChanged) {
@@ -6515,7 +6946,10 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
         const message = `${changedItems.join("、")}変更しました。`;
         return { success: true, message };
       } else {
-        return { success: false, message: "有効な値が指定されなかったため、UIは変更されませんでした。" };
+        return {
+          success: false,
+          message: "有効な値が指定されなかったため、UIは変更されませんでした。"
+        };
       }
     },
     applyFloatingPanelBehavior() {
@@ -6623,7 +7057,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
         entryDiv.classList.add("log-entry", `log-type-${log.type}`);
         const timestampSpan = document.createElement("span");
         timestampSpan.className = "log-timestamp";
-        timestampSpan.textContent = log.timestamp.toLocaleTimeString("ja-JP", { hour12: false });
+        timestampSpan.textContent = log.timestamp.toLocaleTimeString("ja-JP", {
+          hour12: false
+        });
         const typeSpan = document.createElement("span");
         typeSpan.className = "log-type";
         typeSpan.textContent = `[${log.type}]`;
@@ -7641,7 +8077,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
     // --- スワイプ処理ここまで ---
     // 新規チャット開始の確認と実行
     async confirmStartNewChat() {
-      const confirmed = await uiUtils.showCustomConfirm("現在のチャットを保存して新規チャットを開始しますか？");
+      const confirmed = await uiUtils.showCustomConfirm(
+        "現在のチャットを保存して新規チャットを開始しますか？"
+      );
       if (!confirmed) {
         console.log("新規チャットの開始をキャンセルしました。");
         return;
@@ -7650,7 +8088,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
         this.abortRequest();
       }
       if (state.editingMessageIndex !== null) {
-        const msgEl = elements.messageContainer.querySelector(`.message[data-index="${state.editingMessageIndex}"]`);
+        const msgEl = elements.messageContainer.querySelector(
+          `.message[data-index="${state.editingMessageIndex}"]`
+        );
         this.cancelEditMessage(state.editingMessageIndex, msgEl);
       }
       if (state.isEditingSystemPrompt) {
@@ -7701,23 +8141,33 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
       state.syncMessageCounter = 0;
       state.currentMessages = [];
       if (state.isSending) {
-        const confirmed = await uiUtils.showCustomConfirm("送信中です。中断して別のチャットを読み込みますか？");
+        const confirmed = await uiUtils.showCustomConfirm(
+          "送信中です。中断して別のチャットを読み込みますか？"
+        );
         if (!confirmed) return;
         this.abortRequest();
       }
       if (state.editingMessageIndex !== null) {
-        const confirmed = await uiUtils.showCustomConfirm("編集中です。変更を破棄して別のチャットを読み込みますか？");
+        const confirmed = await uiUtils.showCustomConfirm(
+          "編集中です。変更を破棄して別のチャットを読み込みますか？"
+        );
         if (!confirmed) return;
-        const msgEl = elements.messageContainer.querySelector(`.message[data-index="${state.editingMessageIndex}"]`);
+        const msgEl = elements.messageContainer.querySelector(
+          `.message[data-index="${state.editingMessageIndex}"]`
+        );
         this.cancelEditMessage(state.editingMessageIndex, msgEl);
       }
       if (state.isEditingSystemPrompt) {
-        const confirmed = await uiUtils.showCustomConfirm("システムプロンプト編集中です。変更を破棄して別のチャットを読み込みますか？");
+        const confirmed = await uiUtils.showCustomConfirm(
+          "システムプロンプト編集中です。変更を破棄して別のチャットを読み込みますか？"
+        );
         if (!confirmed) return;
         this.cancelEditSystemPrompt();
       }
       if (state.pendingAttachments.length > 0) {
-        const confirmedAttach = await uiUtils.showCustomConfirm("添付準備中のファイルがあります。破棄して別のチャットを読み込みますか？");
+        const confirmedAttach = await uiUtils.showCustomConfirm(
+          "添付準備中のファイルがあります。破棄して別のチャットを読み込みますか？"
+        );
         if (!confirmedAttach) return;
         state.pendingAttachments = [];
         uiUtils.updateAttachmentBadgeVisibility();
@@ -7738,7 +8188,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
           this.toggleMemoryIconVisibility();
           this.updateCharacterProfileButtonVisibility();
           let needsSave = false;
-          const groupIds = new Set(state.currentMessages.filter((m) => m.siblingGroupId).map((m) => m.siblingGroupId));
+          const groupIds = new Set(
+            state.currentMessages.filter((m) => m.siblingGroupId).map((m) => m.siblingGroupId)
+          );
           groupIds.forEach((gid) => {
             const siblings = state.currentMessages.filter((m) => m.siblingGroupId === gid);
             const selected = siblings.filter((m) => m.isSelected);
@@ -7791,13 +8243,19 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
         this.abortRequest();
       }
       if (state.editingMessageIndex !== null) {
-        const conf = await uiUtils.showCustomConfirm("編集中です。変更を破棄してチャットを複製しますか？");
+        const conf = await uiUtils.showCustomConfirm(
+          "編集中です。変更を破棄してチャットを複製しますか？"
+        );
         if (!conf) return;
-        const msgEl = elements.messageContainer.querySelector(`.message[data-index="${state.editingMessageIndex}"]`);
+        const msgEl = elements.messageContainer.querySelector(
+          `.message[data-index="${state.editingMessageIndex}"]`
+        );
         this.cancelEditMessage(state.editingMessageIndex, msgEl);
       }
       if (state.isEditingSystemPrompt) {
-        const conf = await uiUtils.showCustomConfirm("システムプロンプト編集中です。変更を破棄してチャットを複製しますか？");
+        const conf = await uiUtils.showCustomConfirm(
+          "システムプロンプト編集中です。変更を破棄してチャットを複製しますか？"
+        );
         if (!conf) return;
         this.cancelEditSystemPrompt();
       }
@@ -7806,12 +8264,16 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
           await dbUtils.saveChat();
         } catch (error) {
           console.error("複製前の現チャット保存失敗:", error);
-          const conf = await uiUtils.showCustomConfirm("現在のチャット保存に失敗しました。複製を続行しますか？");
+          const conf = await uiUtils.showCustomConfirm(
+            "現在のチャット保存に失敗しました。複製を続行しますか？"
+          );
           if (!conf) return;
         }
       }
       if (state.pendingAttachments.length > 0) {
-        const confirmedAttach = await uiUtils.showCustomConfirm("添付準備中のファイルがあります。破棄してチャットを複製しますか？");
+        const confirmedAttach = await uiUtils.showCustomConfirm(
+          "添付準備中のファイルがあります。破棄してチャットを複製しますか？"
+        );
         if (!confirmedAttach) return;
         state.pendingAttachments = [];
       }
@@ -7829,7 +8291,10 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
             newMsg.isSelected = msg.isSelected ?? false;
             if (msg.siblingGroupId) {
               if (!groupIdMap.has(msg.siblingGroupId)) {
-                groupIdMap.set(msg.siblingGroupId, `dup-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`);
+                groupIdMap.set(
+                  msg.siblingGroupId,
+                  `dup-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
+                );
               }
               newMsg.siblingGroupId = groupIdMap.get(msg.siblingGroupId);
             } else {
@@ -7837,7 +8302,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
             }
             duplicatedMessages.push(newMsg);
           });
-          const newGroupIds = new Set(duplicatedMessages.filter((m) => m.siblingGroupId).map((m) => m.siblingGroupId));
+          const newGroupIds = new Set(
+            duplicatedMessages.filter((m) => m.siblingGroupId).map((m) => m.siblingGroupId)
+          );
           newGroupIds.forEach((gid) => {
             const siblings = duplicatedMessages.filter((m) => m.siblingGroupId === gid);
             siblings.forEach((m, idx) => {
@@ -7877,7 +8344,9 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
     },
     // チャットをテキストファイルとしてエクスポート
     async exportChat(chatId, chatTitle) {
-      const confirmed = await uiUtils.showCustomConfirm(`チャット「${chatTitle || "この履歴"}」をテキスト出力しますか？`);
+      const confirmed = await uiUtils.showCustomConfirm(
+        `チャット「${chatTitle || "この履歴"}」をテキスト出力しますか？`
+      );
       if (!confirmed) return;
       uiUtils.showProgressDialog("エクスポート準備中...");
       try {
@@ -7940,10 +8409,15 @@ URL、認証情報、Forge/Reforgeの起動オプション(--listen)を確認し
                 };
               }
             } catch (e) {
-              console.error(`エクスポート中に画像(ID: ${imageId})の処理に失敗しました:`, e);
+              console.error(
+                `エクスポート中に画像(ID: ${imageId})の処理に失敗しました:`,
+                e
+              );
             }
             processedCount++;
-            uiUtils.updateProgressMessage(`画像データを収集中... (${processedCount} / ${allImageIds.size})`);
+            uiUtils.updateProgressMessage(
+              `画像データを収集中... (${processedCount} / ${allImageIds.size})`
+            );
           }
         }
         uiUtils.updateProgressMessage("テキストデータを生成中...");
@@ -8021,7 +8495,10 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
         const blob = new Blob([exportText.trim()], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        const safeTitle = (chatToExport.title || `chat_${chatId}_export`).replace(/[<>:"/\\|?*\s]/g, "_");
+        const safeTitle = (chatToExport.title || `chat_${chatId}_export`).replace(
+          /[<>:"/\\|?*\s]/g,
+          "_"
+        );
         a.href = url;
         a.download = `${safeTitle}.txt`;
         document.body.appendChild(a);
@@ -8037,7 +8514,9 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
     },
     // チャット削除の確認と実行 (メッセージペア全体)
     async confirmDeleteChat(id, title) {
-      const confirmed = await uiUtils.showCustomConfirm(`「${title || "この履歴"}」を削除しますか？`);
+      const confirmed = await uiUtils.showCustomConfirm(
+        `「${title || "この履歴"}」を削除しますか？`
+      );
       if (confirmed) {
         const isDeletingCurrent = state.currentChatId === id;
         const currentScreenBeforeDelete = state.currentScreen;
@@ -8045,13 +8524,17 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
           await dbUtils.deleteChat(id);
           console.log("チャット削除:", id);
           if (isDeletingCurrent) {
-            console.log("表示中のチャットが削除されたため、内部状態を新規チャットにリセット。");
+            console.log(
+              "表示中のチャットが削除されたため、内部状態を新規チャットにリセット。"
+            );
             this.startNewChat();
           }
           if (currentScreenBeforeDelete === "history") {
             console.log("履歴画面での操作のため、リストUIを更新します。");
             await uiUtils.renderHistoryList();
-            const listIsEmpty = elements.historyList.querySelectorAll(".history-item:not(.js-history-item-template)").length === 0;
+            const listIsEmpty = elements.historyList.querySelectorAll(
+              ".history-item:not(.js-history-item-template)"
+            ).length === 0;
             if (listIsEmpty) {
               console.log("履歴リストが空になりました。");
               if (!isDeletingCurrent) {
@@ -8077,7 +8560,8 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
           titleElement.textContent = finalTitle;
           titleElement.title = finalTitle;
           const dateElement = titleElement.closest(".history-item")?.querySelector(".updated-date");
-          if (dateElement) dateElement.textContent = `更新: ${uiUtils.formatDate(Date.now())}`;
+          if (dateElement)
+            dateElement.textContent = `更新: ${uiUtils.formatDate(Date.now())}`;
           if (state.currentChatId === chatId) {
             uiUtils.updateChatTitle(finalTitle);
           }
@@ -8106,10 +8590,18 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
           return;
         }
         try {
-          const { messages: importedMessages, systemPrompt: importedSystemPrompt, persistentMemory: importedMemory, summarizedContext: importedSummary, imageData: importedImageData } = this.parseImportedHistory(textContent);
+          const {
+            messages: importedMessages,
+            systemPrompt: importedSystemPrompt,
+            persistentMemory: importedMemory,
+            summarizedContext: importedSummary,
+            imageData: importedImageData
+          } = this.parseImportedHistory(textContent);
           if (importedMessages.length === 0 && !importedSystemPrompt && (!importedMemory || Object.keys(importedMemory).length === 0)) {
             elements.progressDialog.close();
-            await uiUtils.showCustomAlert("ファイルから有効なメッセージ、システムプロンプト、またはメタデータを読み込めませんでした。形式を確認してください。");
+            await uiUtils.showCustomAlert(
+              "ファイルから有効なメッセージ、システムプロンプト、またはメタデータを読み込めませんでした。形式を確認してください。"
+            );
             return;
           }
           const imageIdMap = /* @__PURE__ */ new Map();
@@ -8154,7 +8646,9 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
               currentGroupId = null;
             }
           }
-          const groupIds = new Set(importedMessages.filter((m) => m.siblingGroupId).map((m) => m.siblingGroupId));
+          const groupIds = new Set(
+            importedMessages.filter((m) => m.siblingGroupId).map((m) => m.siblingGroupId)
+          );
           groupIds.forEach((gid) => {
             const siblings = importedMessages.filter((m) => m.siblingGroupId === gid);
             const selected = siblings.filter((m) => m.isSelected);
@@ -8189,7 +8683,9 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
         } catch (error) {
           console.error("履歴インポート処理エラー:", error);
           elements.progressDialog.close();
-          await uiUtils.showCustomAlert(`履歴のインポート中にエラーが発生しました: ${error.message}`);
+          await uiUtils.showCustomAlert(
+            `履歴のインポート中にエラーが発生しました: ${error.message}`
+          );
         }
       };
       reader.onerror = async (event) => {
@@ -8278,13 +8774,19 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
           messages.push(messageData);
         }
       }
-      console.log(`インポートテキストから ${messages.length} 件のメッセージとシステムプロンプト(${systemPrompt ? "あり" : "なし"})、要約データ(${summarizedContext ? "あり" : "なし"})をパースしました。`);
+      console.log(
+        `インポートテキストから ${messages.length} 件のメッセージとシステムプロンプト(${systemPrompt ? "あり" : "なし"})、要約データ(${summarizedContext ? "あり" : "なし"})をパースしました。`
+      );
       return { messages, systemPrompt, persistentMemory, summarizedContext, imageData };
     },
     async autoGenerateTitle() {
       const userMsgs = state.currentMessages.filter((m) => m.role === "user" && !m.isHidden);
-      const modelMsgs = state.currentMessages.filter((m) => (m.role === "model" || m.role === "assistant") && !m.error && !m.isHidden);
-      console.log(`[AutoTitle] 起動: userMsgs=${userMsgs.length}, modelMsgs=${modelMsgs.length}, chatId=${state.currentChatId}, provider=${state.settings.apiProvider}`);
+      const modelMsgs = state.currentMessages.filter(
+        (m) => (m.role === "model" || m.role === "assistant") && !m.error && !m.isHidden
+      );
+      console.log(
+        `[AutoTitle] 起動: userMsgs=${userMsgs.length}, modelMsgs=${modelMsgs.length}, chatId=${state.currentChatId}, provider=${state.settings.apiProvider}`
+      );
       if (userMsgs.length !== 1 || modelMsgs.length < 1) {
         console.log("[AutoTitle] 条件不一致でスキップ");
         return;
@@ -8350,7 +8852,8 @@ AI: ${firstModelContent}`;
             mistral: state.settings.mistralApiKey,
             openrouter: state.settings.openrouterApiKey,
             zai: state.settings.zaiApiKey || state.settings.apiKey,
-            sakana: state.settings.sakanaApiKey
+            sakana: state.settings.sakanaApiKey,
+            opencode: state.settings.opencodeApiKey
           };
           const baseUrlMap = {
             openai: "https://api.openai.com/v1/chat/completions",
@@ -8360,7 +8863,8 @@ AI: ${firstModelContent}`;
             mistral: MISTRAL_API_BASE_URL,
             openrouter: OPENROUTER_API_BASE_URL,
             zai: ZAI_API_BASE_URL,
-            sakana: SAKANA_API_BASE_URL
+            sakana: SAKANA_API_BASE_URL,
+            opencode: OPENCODE_API_BASE_URL
           };
           const apiKey = apiKeyMap[provider];
           const baseUrl = baseUrlMap[provider];
@@ -8372,7 +8876,10 @@ AI: ${firstModelContent}`;
           const titleModel = titleModelMap[provider] || state.settings.modelName;
           const resp = await fetch(baseUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`
+            },
             body: JSON.stringify({
               model: titleModel,
               max_tokens: 200,
@@ -9389,7 +9896,7 @@ AI: ${firstModelContent}`;
           if (forceCalling) requestBody.tool_choice = "required";
         }
       }
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("https://api.orcarouter.ai/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
         body: JSON.stringify(requestBody),
@@ -9757,6 +10264,16 @@ ${knowledgeText}`;
           return await this.callOpenAICompatibleApi(state.settings.groqApiKey, GROQ_API_BASE_URL, "Groq", messagesForApi, generationConfig, systemInstruction, signal);
         case "deepseek":
           return await this.callOpenAICompatibleApi(state.settings.deepseekApiKey, DEEPSEEK_API_BASE_URL, "DeepSeek", messagesForApi, generationConfig, systemInstruction, signal);
+        case "opencode":
+          return await this._callOpenAICompatibleWithTools({
+            label: "OpenCode Go",
+            baseUrl: OPENCODE_API_BASE_URL,
+            defaultModel: DEFAULT_OPENCODE_MODEL,
+            getApiKey: /* @__PURE__ */ __name(() => state.settings.opencodeApiKey, "getApiKey"),
+            missingKeyMessage: "OpenCode Go APIキーが設定されていません。",
+            extraHeaders: /* @__PURE__ */ __name(() => ({}), "extraHeaders"),
+            verboseError: false
+          }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
         case "xai":
           return await this.callOpenAICompatibleApi(state.settings.xaiApiKey, XAI_API_BASE_URL, "xAI", messagesForApi, generationConfig, systemInstruction, signal);
         case "mistral":
@@ -9788,7 +10305,8 @@ ${knowledgeText}`;
     mistral: DEFAULT_MISTRAL_MODEL,
     zai: DEFAULT_ZAI_MODEL,
     sakana: DEFAULT_SAKANA_MODEL,
-    openrouter: DEFAULT_OPENROUTER_MODEL
+    openrouter: DEFAULT_OPENROUTER_MODEL,
+    opencode: DEFAULT_OPENCODE_MODEL
   };
   function isRetiredModelError(errorMessage) {
     if (!errorMessage) return false;
@@ -13000,7 +13518,8 @@ ${msg}`);
       mistral: state.settings.mistralApiKey,
       openrouter: state.settings.openrouterApiKey,
       zai: state.settings.zaiApiKey || state.settings.apiKey,
-      sakana: state.settings.sakanaApiKey
+      sakana: state.settings.sakanaApiKey,
+      opencode: state.settings.opencodeApiKey
     };
     const urls = {
       openai: "https://api.openai.com/v1/chat/completions",
@@ -13010,12 +13529,20 @@ ${msg}`);
       mistral: MISTRAL_API_BASE_URL,
       openrouter: OPENROUTER_API_BASE_URL,
       zai: ZAI_API_BASE_URL,
-      sakana: SAKANA_API_BASE_URL
+      sakana: SAKANA_API_BASE_URL,
+      opencode: OPENCODE_API_BASE_URL
     };
     return { apiKey: keys[provider], baseUrl: urls[provider] };
   }
   __name(getOpenAICompatConfig, "getOpenAICompatConfig");
-  async function runAuxiliaryCompletion({ provider, model, systemPrompt, userContent, temperature = 0.3, maxTokens = 4096 }) {
+  async function runAuxiliaryCompletion({
+    provider,
+    model,
+    systemPrompt,
+    userContent,
+    temperature = 0.3,
+    maxTokens = 4096
+  }) {
     let endpoint, headers, body, parse;
     if (provider === "anthropic") {
       const apiKey = state.settings.anthropicApiKey;
@@ -13080,7 +13607,8 @@ ${msg}`);
     if (m.startsWith("gemini")) return "gemini";
     if (m.startsWith("gpt") || m.startsWith("chatgpt") || /^o[1-9]/.test(m)) return "openai";
     if (m.startsWith("grok")) return "xai";
-    if (m.startsWith("mistral") || m.startsWith("codestral") || m.startsWith("open-mistral") || m.startsWith("open-mixtral")) return "mistral";
+    if (m.startsWith("mistral") || m.startsWith("codestral") || m.startsWith("open-mistral") || m.startsWith("open-mixtral"))
+      return "mistral";
     if (m.startsWith("glm")) return "zai";
     if (m.startsWith("fugu")) return "sakana";
     return fallback;
@@ -13092,7 +13620,8 @@ ${msg}`);
       anthropic: "claude-haiku-4-5-20251001",
       deepseek: "deepseek-chat",
       openai: "gpt-4o-mini",
-      mistral: "mistral-small-latest"
+      mistral: "mistral-small-latest",
+      opencode: "deepseek-v4-flash"
     };
     return lightModels[provider] || state.settings.modelName;
   }
@@ -13109,7 +13638,9 @@ ${msg}`);
       }
       let summary = "【現在の状況サマリー】\n";
       const sections = [];
-      const characterMemoryEntries = Object.entries(memory).filter(([key]) => key.startsWith("character_memory_"));
+      const characterMemoryEntries = Object.entries(memory).filter(
+        ([key]) => key.startsWith("character_memory_")
+      );
       if (characterMemoryEntries.length > 0) {
         let content = characterMemoryEntries.map(([key, value]) => {
           const charName = key.replace("character_memory_", "");
@@ -13129,7 +13660,9 @@ ${content}`);
         sections.push(`## 日付 (manage_game_date)
 - 現在: ${memory.game_day}日目`);
       }
-      const statusEntries = Object.entries(memory).filter(([key]) => key.startsWith("character_") && !key.startsWith("character_memory_"));
+      const statusEntries = Object.entries(memory).filter(
+        ([key]) => key.startsWith("character_") && !key.startsWith("character_memory_")
+      );
       if (statusEntries.length > 0) {
         let content = statusEntries.map(([key, value]) => {
           const charName = key.replace("character_", "");
@@ -13161,8 +13694,10 @@ ${content}`);
       );
       if (flagAndMemoryKeys.length > 0) {
         let flagContent = flagAndMemoryKeys.map((key) => `- ${key}: ${JSON.stringify(memory[key])}`).join("\n");
-        sections.push(`## フラグ・重要設定 (manage_flags, manage_persistent_memory)
-${flagContent}`);
+        sections.push(
+          `## フラグ・重要設定 (manage_flags, manage_persistent_memory)
+${flagContent}`
+        );
       }
       if (sections.length > 0) {
         summary += sections.join("\n\n");
@@ -13270,9 +13805,11 @@ ${flagContent}`);
         const memoryData = await dbUtils.getMemory(state.activeProfileId);
         if (!memoryData || !memoryData.items || !memoryData.items[index]) return;
         const itemToDelete = memoryData.items[index];
-        const confirmed = await uiUtils.showCustomConfirm(`以下の記憶を削除しますか？
+        const confirmed = await uiUtils.showCustomConfirm(
+          `以下の記憶を削除しますか？
 
-「${itemToDelete}」`);
+「${itemToDelete}」`
+        );
         if (confirmed) {
           memoryData.items.splice(index, 1);
           await dbUtils.saveMemory(state.activeProfileId, memoryData);
@@ -13290,8 +13827,10 @@ ${flagContent}`);
         await uiUtils.showCustomAlert("削除する記憶はありません。");
         return;
       }
-      const confirmed = await uiUtils.showCustomConfirm(`現在プロファイルに保存されている ${memoryData.items.length} 件の記憶をすべて削除しますか？
-この操作は元に戻せません。`);
+      const confirmed = await uiUtils.showCustomConfirm(
+        `現在プロファイルに保存されている ${memoryData.items.length} 件の記憶をすべて削除しますか？
+この操作は元に戻せません。`
+      );
       if (confirmed) {
         try {
           await dbUtils.saveMemory(state.activeProfileId, { items: [] });
@@ -13377,7 +13916,9 @@ ${flagContent}`);
           return;
         }
         if (summaryText.trim() === "[追加情報なし]") {
-          console.log("[Memory] AIが追加情報なしと判断したため、メモリの更新をスキップしました。");
+          console.log(
+            "[Memory] AIが追加情報なしと判断したため、メモリの更新をスキップしました。"
+          );
           return;
         }
         const newItems = summaryText.split("\n").map((line) => line.replace(/^[*-]\s*/, "").trim()).filter((line) => line.length > 0 && line !== "[追加情報なし]");
@@ -13387,7 +13928,10 @@ ${flagContent}`);
           if (uniqueNewItems.length > 0) {
             memoryData.items.push(...uniqueNewItems);
             await dbUtils.saveMemory(state.activeProfileId, memoryData);
-            console.log(`[Memory] 自動学習により、${uniqueNewItems.length}件の新しい記憶を追加しました。`, uniqueNewItems);
+            console.log(
+              `[Memory] 自動学習により、${uniqueNewItems.length}件の新しい記憶を追加しました。`,
+              uniqueNewItems
+            );
           } else {
             console.log("[Memory] 自動学習で生成された記憶は、すべて既存のものでした。");
           }
@@ -13448,9 +13992,12 @@ ${flagContent}`);
         ["Claude", "https://console.anthropic.com/settings/usage"],
         ["Gemini", "https://aistudio.google.com/usage"],
         ["OpenRouter", "https://openrouter.ai/activity"],
-        ["DeepSeek", "https://platform.deepseek.com/usage"]
+        ["DeepSeek", "https://platform.deepseek.com/usage"],
+        ["OpenCode Go", "https://opencode.ai/dashboard"]
       ];
-      const linksHtml = `<div class="stats-links"><div class="stats-links-title">🔗 API使用量・料金の確認</div><div class="stats-links-grid">` + usageLinks.map(([name, url]) => `<a class="stats-link" href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>`).join("") + `</div></div>`;
+      const linksHtml = `<div class="stats-links"><div class="stats-links-title">🔗 API使用量・料金の確認</div><div class="stats-links-grid">` + usageLinks.map(
+        ([name, url]) => `<a class="stats-link" href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>`
+      ).join("") + `</div></div>`;
       elements.chatStatsContent.innerHTML = rows.map(
         ([label, value]) => `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`
       ).join("") + linksHtml;
@@ -13458,7 +14005,9 @@ ${flagContent}`);
     },
     // 全チャットを横断した使用量サマリー。プロジェクトの絞り込みに関係なく全件を対象にする。
     async showUsageSummary(range = "thisMonth") {
-      elements.usageRangeTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.range === range));
+      elements.usageRangeTabs.forEach(
+        (tab) => tab.classList.toggle("active", tab.dataset.range === range)
+      );
       elements.usageSummaryContent.innerHTML = '<div class="stats-row"><span class="stats-label">集計中...</span></div>';
       if (!elements.usageSummaryDialog.open) {
         uiUtils.showCustomDialog(elements.usageSummaryDialog, elements.usageSummaryCloseBtn);
@@ -13491,7 +14040,9 @@ ${flagContent}`);
         summary.hasUnpriced ? "※ 「—」は料金表を持たないモデルです（Claude / GPT / Gemini / DeepSeek / Grok 4.6 の最近のモデルに対応）。" : null,
         hasOpenRouter ? "※ OpenRouter経由は提供元の単価で概算しています。クレジット購入時の手数料ぶん、実際の請求は少し高くなります。" : null
       ].filter(Boolean);
-      elements.usageSummaryContent.innerHTML = rows.map(([label, value]) => `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`).join("") + (modelRows ? `<div class="usage-model-title">モデル別</div>${modelRows}` : '<div class="usage-model-title">この期間の記録はありません</div>') + `<div class="usage-notes">${notes.join("<br>")}</div>`;
+      elements.usageSummaryContent.innerHTML = rows.map(
+        ([label, value]) => `<div class="stats-row"><span class="stats-label">${label}</span><span class="stats-value">${value}</span></div>`
+      ).join("") + (modelRows ? `<div class="usage-model-title">モデル別</div>${modelRows}` : '<div class="usage-model-title">この期間の記録はありません</div>') + `<div class="usage-notes">${notes.join("<br>")}</div>`;
     },
     async startSummaryProcess() {
       if (state.isSending || state.editingMessageIndex !== null || state.isEditingSystemPrompt) {
@@ -13537,11 +14088,19 @@ ${flagContent}`);
     },
     async _callSummaryApi(originalText, _isRetry = false) {
       const summaryModel = state.settings.summaryModelName || state.settings.modelName;
-      const provider = inferProviderFromModel(summaryModel, state.settings.apiProvider || "gemini");
+      const provider = inferProviderFromModel(
+        summaryModel,
+        state.settings.apiProvider || "gemini"
+      );
       try {
         const userContent = `【要約対象の会話履歴】
 ${originalText}`;
-        console.log("--- [要約API] リクエスト開始 --- 使用モデル:", summaryModel, "provider:", provider);
+        console.log(
+          "--- [要約API] リクエスト開始 --- 使用モデル:",
+          summaryModel,
+          "provider:",
+          provider
+        );
         const { text: summaryText, raw } = await runAuxiliaryCompletion({
           provider,
           model: summaryModel,
@@ -13626,15 +14185,20 @@ ${summaryText}` : summaryText;
         await dbUtils.saveChat();
         elements.summaryDialog.close("confirm");
         uiUtils.renderChatMessages();
-        await uiUtils.showCustomAlert(`履歴の要約を保存しました。
-次回以降、APIには要約された内容が送信されます。`);
+        await uiUtils.showCustomAlert(
+          `履歴の要約を保存しました。
+次回以降、APIには要約された内容が送信されます。`
+        );
       } catch (error) {
         console.error("要約の保存エラー:", error);
         await uiUtils.showCustomAlert(`要約の保存に失敗しました: ${error.message}`);
       }
     },
     toggleSummaryButtonVisibility() {
-      elements.summarizeHistoryBtn.classList.toggle("hidden", !state.settings.enableSummaryButton);
+      elements.summarizeHistoryBtn.classList.toggle(
+        "hidden",
+        !state.settings.enableSummaryButton
+      );
     }
   };
 
@@ -15081,7 +15645,8 @@ ${pageText}
             { key: "groq", url: "https://api.groq.com/openai/v1/models", apiKey: state.settings.groqApiKey },
             { key: "deepseek", url: "https://api.deepseek.com/v1/models", apiKey: state.settings.deepseekApiKey },
             { key: "xai", url: "https://api.x.ai/v1/models", apiKey: state.settings.xaiApiKey },
-            { key: "mistral", url: "https://api.mistral.ai/v1/models", apiKey: state.settings.mistralApiKey }
+            { key: "mistral", url: "https://api.mistral.ai/v1/models", apiKey: state.settings.mistralApiKey },
+            { key: "opencode", url: "https://opencode.ai/zen/go/v1/models", apiKey: state.settings.opencodeApiKey }
           ];
           for (const p of compatList) {
             if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null);
@@ -15140,14 +15705,14 @@ ${pageText}
       if (apiProvSelect) {
         const updateKeyVisibility = /* @__PURE__ */ __name(() => {
           const p = apiProvSelect.value;
-          ["gemini", "zai", "openrouter", "bedrock", "openai", "anthropic", "groq", "deepseek", "xai", "mistral", "sakana"].forEach((prov) => {
+          ["gemini", "zai", "openrouter", "bedrock", "openai", "anthropic", "groq", "deepseek", "xai", "mistral", "sakana", "opencode"].forEach((prov) => {
             document.getElementById(`${prov}-api-key-container`)?.classList.toggle("hidden", p !== prov);
           });
         }, "updateKeyVisibility");
         apiProvSelect.addEventListener("change", updateKeyVisibility);
         setTimeout(updateKeyVisibility, 500);
       }
-      const providers = ["gemini", "zai", "openrouter", "bedrock", "openai", "anthropic", "groq", "deepseek", "xai", "mistral", "sakana"];
+      const providers = ["gemini", "zai", "openrouter", "bedrock", "openai", "anthropic", "groq", "deepseek", "xai", "mistral", "sakana", "opencode"];
       const defaultModelLists = {
         // ここは「追加モデル」の初期値として実際に保存される。提供終了したモデルを
         // 置くと、新しく使い始めた人の一覧が最初から使えないモデルで埋まるため、
@@ -15162,7 +15727,8 @@ ${pageText}
         zai: "glm-4.6, glm-4.5-flash",
         openrouter: "deepseek/deepseek-chat, anthropic/claude-opus-4.6, google/gemini-3.5-flash",
         bedrock: "us.anthropic.claude-sonnet-4-6, us.anthropic.claude-opus-4-6-v1",
-        sakana: "fugu, fugu-ultra"
+        sakana: "fugu, fugu-ultra",
+        opencode: "big-pickle, nemotron-3-ultra-free"
       };
       state.settings.customModelsText = state.settings.customModelsText || {};
       state.settings.fetchedModels = state.settings.fetchedModels || {};
