@@ -230,9 +230,11 @@ export const OPENCODE_MODELS = [
     { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
     { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
     { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+    { value: 'deepseek-v4-flash-vision-exp', label: 'DeepSeek V4 Flash Vision (実験)' },
     { value: 'minimax-m3', label: 'MiniMax M3' },
     { value: 'minimax-m2.7', label: 'MiniMax M2.7' },
     { value: 'glm-5.2', label: 'GLM 5.2' },
+    { value: 'glm-5.3-flash', label: 'GLM 5.3 Flash' },
     { value: 'kimi-k2.7-code', label: 'Kimi K2.7 Code' },
     { value: 'grok-4.6', label: 'Grok 4.6' },
 ];
