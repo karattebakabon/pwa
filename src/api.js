@@ -8,6 +8,7 @@ import { isImageGenerationModel } from './utils/model-select.js';
 import { getGeminiSafetySettings } from './utils/safety.js';
 import { state } from './state.js';
 import { uiUtils } from './ui.js';
+import { OPENCODE_SESSION_HEADER, OPENCODE_SESSION_STORAGE_KEY } from './constants.js';
 
 // systemInstruction（文字列 / Geminiパーツ形式）からプレーンテキストを取り出すヘルパー
 function extractSystemText(systemInstruction) {
@@ -15,6 +16,40 @@ function extractSystemText(systemInstruction) {
     if (typeof systemInstruction === 'string') return systemInstruction;
     if (systemInstruction.parts) return systemInstruction.parts.map(p => p.text || '').join('');
     return null;
+}
+
+// OpenCode 中継のセッションアフィニティ（x-opencode-session）用ヘッダーを組み立てる。
+// Hermes Agent と同じ設計で、同一会話（同一エントリポイント）のリクエストは
+// 同じ不透明ランダムIDを送り続け、上流バックエンドを固定してプロンプト
+// キャッシュを温める。ランダムIDは localStorage に永続保持する。
+function getOpencodeSessionExtraHeaders() {
+    let sessionId = '';
+    try {
+        sessionId = localStorage.getItem(OPENCODE_SESSION_STORAGE_KEY) || '';
+        if (!sessionId) {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                sessionId = window.crypto.randomUUID();
+            } else {
+                sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            }
+            localStorage.setItem(OPENCODE_SESSION_STORAGE_KEY, sessionId);
+            console.log(`[OpenCode Session] 新しいセッションIDを発行しました: ${sessionId}`);
+        }
+    } catch (e) {
+        // localStorage が使えない環境（プライベートモード等）では
+        // ページロード毎の暫定IDをメモリ上で保持して使い回す。
+        if (!getOpencodeSessionExtraHeaders._fallbackId) {
+            getOpencodeSessionExtraHeaders._fallbackId = `ephemeral-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        }
+        sessionId = getOpencodeSessionExtraHeaders._fallbackId;
+        console.warn('[OpenCode Session] localStorageを使えないため暫定セッションIDを使用します。', e);
+    }
+    return { [OPENCODE_SESSION_HEADER]: sessionId };
+}
+
+// モデル一覧 GET（/models）にも同じセッションIDを付ける
+export function getOpencodeSessionFetchInit() {
+    return { headers: getOpencodeSessionExtraHeaders() };
 }
 
 export const apiUtils = {
@@ -1674,7 +1709,8 @@ export const apiUtils = {
                     defaultModel: DEFAULT_OPENCODE_MODEL,
                     getApiKey: () => state.settings.opencodeApiKey,
                     missingKeyMessage: 'OpenCode Go APIキーが設定されていません。',
-                    extraHeaders: () => ({}),
+                    // x-opencode-session で上流バックエンドを固定し、プロンプトキャッシュを温める
+                    extraHeaders: () => getOpencodeSessionExtraHeaders(),
                     verboseError: false
                 }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
             case 'xai':

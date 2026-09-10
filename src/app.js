@@ -146,6 +146,7 @@ export function registerServiceWorker() {
 
 // --- IndexedDBユーティリティ (dbUtils) ---
 import { dbUtils } from './db.js';
+import { getOpencodeSessionFetchInit } from './api.js';
 
 // --- UIユーティリティ (uiUtils) ---
 
@@ -832,9 +833,9 @@ window.dbUtils = dbUtils;
                     } catch { return ''; }
                 }
 
-                async function fetchOpenAICompat(url, apiKey, provider, filter) {
+                async function fetchOpenAICompat(url, apiKey, provider, filter, extraInit = {}) {
                     try {
-                        const r = await fetch(url, { headers: { 'Authorization': `Bearer ${apiKey}` } });
+                        const r = await fetch(url, { headers: { 'Authorization': `Bearer ${apiKey}`, ...(extraInit.headers || {}) } });
                         if (!r.ok) { results.push(`${provider}: HTTP ${r.status}${await httpErrorDetail(r)}`); return; }
                         const d = await r.json();
                         const models = (d.data || []).map(m => m.id).filter(id => id && (!filter || filter(id)));
@@ -891,7 +892,9 @@ window.dbUtils = dbUtils;
                     { key: 'opencode', url: (state.settings.opencodeProxyUrl || 'https://opencode-go-proxy.emerald-pencil.workers.dev').replace(/\/+$/, '') + '/models',       apiKey: state.settings.opencodeApiKey },
                 ];
                 for (const p of compatList) {
-                    if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null);
+                    // OpenCode のときだけ x-opencode-session を付ける（キャッシュ固定のため）
+                    const extraInit = p.key === 'opencode' ? getOpencodeSessionFetchInit() : {};
+                    if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null, extraInit);
                 }
 
                 // Persist fetchedModels and refresh dropdown

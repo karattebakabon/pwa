@@ -35,6 +35,13 @@ export const DEFAULT_OPENCODE_PROXY_URL = 'https://opencode-go-proxy.emerald-pen
 // プロキシ経由の chat/completions / models エンドポイント（プロキシは /v1/ を上流へ付与して中継する）
 export const OPENCODE_PROXY_CHAT_URL = `${DEFAULT_OPENCODE_PROXY_URL}/chat/completions`;
 export const OPENCODE_PROXY_MODELS_URL = `${DEFAULT_OPENCODE_PROXY_URL}/models`;
+
+// OpenCode 中継のセッションアフィニティ用ヘッダー。
+// Hermes Agent と同様に、同一会話からのリクエストは同じ x-opencode-session 値を
+// 送り、上流バックエンドを固定することでプロンプトキャッシュを温める。
+// 値は不透明なランダム文字列でよく、会話単位で localStorage に永続保持する。
+export const OPENCODE_SESSION_HEADER = 'x-opencode-session';
+export const OPENCODE_SESSION_STORAGE_KEY = 'pwaLily.opencodeSessionId';
 export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';

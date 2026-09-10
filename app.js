@@ -1882,6 +1882,8 @@ ${relationship_context}`;
   var DEFAULT_OPENCODE_PROXY_URL = "https://opencode-go-proxy.emerald-pencil.workers.dev";
   var OPENCODE_PROXY_CHAT_URL = `${DEFAULT_OPENCODE_PROXY_URL}/chat/completions`;
   var OPENCODE_PROXY_MODELS_URL = `${DEFAULT_OPENCODE_PROXY_URL}/models`;
+  var OPENCODE_SESSION_HEADER = "x-opencode-session";
+  var OPENCODE_SESSION_STORAGE_KEY = "pwaLily.opencodeSessionId";
   var DUPLICATE_SUFFIX = " (コピー)";
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
@@ -8943,6 +8945,33 @@ AI: ${firstModelContent}`;
     return null;
   }
   __name(extractSystemText, "extractSystemText");
+  function getOpencodeSessionExtraHeaders() {
+    let sessionId = "";
+    try {
+      sessionId = localStorage.getItem(OPENCODE_SESSION_STORAGE_KEY) || "";
+      if (!sessionId) {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          sessionId = window.crypto.randomUUID();
+        } else {
+          sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        }
+        localStorage.setItem(OPENCODE_SESSION_STORAGE_KEY, sessionId);
+        console.log(`[OpenCode Session] 新しいセッションIDを発行しました: ${sessionId}`);
+      }
+    } catch (e) {
+      if (!getOpencodeSessionExtraHeaders._fallbackId) {
+        getOpencodeSessionExtraHeaders._fallbackId = `ephemeral-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      }
+      sessionId = getOpencodeSessionExtraHeaders._fallbackId;
+      console.warn("[OpenCode Session] localStorageを使えないため暫定セッションIDを使用します。", e);
+    }
+    return { [OPENCODE_SESSION_HEADER]: sessionId };
+  }
+  __name(getOpencodeSessionExtraHeaders, "getOpencodeSessionExtraHeaders");
+  function getOpencodeSessionFetchInit() {
+    return { headers: getOpencodeSessionExtraHeaders() };
+  }
+  __name(getOpencodeSessionFetchInit, "getOpencodeSessionFetchInit");
   var apiUtils = {
     // Gemini形式からOpenAI形式への変換
     convertGeminiToOpenAIFormat(messagesForApi) {
@@ -10304,7 +10333,8 @@ ${knowledgeText}`;
             defaultModel: DEFAULT_OPENCODE_MODEL,
             getApiKey: /* @__PURE__ */ __name(() => state.settings.opencodeApiKey, "getApiKey"),
             missingKeyMessage: "OpenCode Go APIキーが設定されていません。",
-            extraHeaders: /* @__PURE__ */ __name(() => ({}), "extraHeaders"),
+            // x-opencode-session で上流バックエンドを固定し、プロンプトキャッシュを温める
+            extraHeaders: /* @__PURE__ */ __name(() => getOpencodeSessionExtraHeaders(), "extraHeaders"),
             verboseError: false
           }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
         case "xai":
@@ -15619,9 +15649,9 @@ ${pageText}
             }
           }
           __name(httpErrorDetail, "httpErrorDetail");
-          async function fetchOpenAICompat(url, apiKey, provider, filter) {
+          async function fetchOpenAICompat(url, apiKey, provider, filter, extraInit = {}) {
             try {
-              const r = await fetch(url, { headers: { "Authorization": `Bearer ${apiKey}` } });
+              const r = await fetch(url, { headers: { "Authorization": `Bearer ${apiKey}`, ...extraInit.headers || {} } });
               if (!r.ok) {
                 results.push(`${provider}: HTTP ${r.status}${await httpErrorDetail(r)}`);
                 return;
@@ -15683,7 +15713,8 @@ ${pageText}
             { key: "opencode", url: (state.settings.opencodeProxyUrl || "https://opencode-go-proxy.emerald-pencil.workers.dev").replace(/\/+$/, "") + "/models", apiKey: state.settings.opencodeApiKey }
           ];
           for (const p of compatList) {
-            if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null);
+            const extraInit = p.key === "opencode" ? getOpencodeSessionFetchInit() : {};
+            if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null, extraInit);
           }
           if (window.dbUtils && typeof window.dbUtils.saveSetting === "function") {
             window.dbUtils.saveSetting("fetchedModels", state.settings.fetchedModels).catch(() => {
