@@ -54,7 +54,8 @@ export function getOpencodeSessionFetchInit() {
 
 export const apiUtils = {
     // Gemini形式からOpenAI形式への変換
-    convertGeminiToOpenAIFormat(messagesForApi) {
+    convertGeminiToOpenAIFormat(messagesForApi, opts = {}) {
+        const cfgPassthroughReasoning = opts.passthroughReasoning === true;
         const openAIMessages = [];
         
         for (const geminiMsg of messagesForApi) {
@@ -122,7 +123,22 @@ export const apiUtils = {
                 }
                 
                 const message = { role };
-                
+
+                // 思考パート（thought: true）の処理。
+                // OpenCode (Console Go) 等の thinking 対応バックエンドは、アシスタント
+                // 履歴に reasoning_content が無いと "The `reasoning_content` in the
+                // thinking mode must be passed back to the API" (400) で拒否するため、
+                // 思考パートを reasoning_content として復元して送り返す。
+                // （provider フラグの無いOpenAI互換一般経路では送らない——
+                //   受け付けないプロバイダーが 400 を返すのを避けるため、
+                //   cfg 経由で opt-in されたときだけ付与する）
+                const thoughtTexts = parts
+                    .filter(p => p.thought && typeof p.text === 'string' && p.text)
+                    .map(p => p.text);
+                if (cfgPassthroughReasoning && thoughtTexts.length > 0 && role === 'model') {
+                    message.reasoning_content = thoughtTexts.join('\n');
+                }
+
                 // コンテンツの設定
                 if (contentParts.length > 0) {
                     if (contentParts.length === 1 && contentParts[0].type === 'text') {
@@ -840,7 +856,11 @@ export const apiUtils = {
         const model = state.settings.modelName || cfg.defaultModel;
 
         // Gemini形式のメッセージをOpenAI形式に変換
-        const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi);
+        // OpenCode 経由のときは思考パートを reasoning_content として履歴へ戻す
+        // （thinking モデルの400 "must be passed back to the API" 対策）
+        const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
+            passthroughReasoning: provider === 'opencode'
+        });
 
         // システムプロンプトの処理
         if (systemInstruction && systemInstruction.parts && systemInstruction.parts.length > 0) {

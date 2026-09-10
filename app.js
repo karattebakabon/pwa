@@ -3800,13 +3800,13 @@ Reason: [NGの場合の理由]`,
     // 設定をUIに適用
     applySettingsToUI() {
       if (elements.apiProviderSelect) {
-        const provider = state.settings.apiProvider || "gemini";
-        elements.apiProviderSelect.value = provider;
+        const provider2 = state.settings.apiProvider || "gemini";
+        elements.apiProviderSelect.value = provider2;
         if (elements.apiProviderRow) {
           elements.apiProviderRow.classList.remove("hidden");
         }
-        appLogic.updateProviderUI(provider);
-        appLogic.updateModelOptions(provider);
+        appLogic.updateProviderUI(provider2);
+        appLogic.updateModelOptions(provider2);
       }
       elements.apiKeyInput.value = state.settings.apiKey || "";
       if (elements.zaiApiKeyInput) {
@@ -4835,8 +4835,8 @@ Reason: [NGの場合の理由]`,
       }
       stringKeys.forEach((key) => {
         if (key === "modelName") {
-          const provider = settings.apiProvider || state.settings.apiProvider || "gemini";
-          if (provider === "openrouter" && elements.openrouterModelInput) {
+          const provider2 = settings.apiProvider || state.settings.apiProvider || "gemini";
+          if (provider2 === "openrouter" && elements.openrouterModelInput) {
             settings[key] = elements.openrouterModelInput.value.trim();
           } else if (elements.modelNameSelect) {
             settings[key] = elements.modelNameSelect.value.trim();
@@ -5149,19 +5149,19 @@ Reason: [NGの場合の理由]`,
       }
     }, "updateApiUsageUI"),
     // プロバイダー変更時のUI更新
-    updateProviderUI(provider) {
-      const isGemini = provider === "gemini";
-      const isZai = provider === "zai";
-      const isOpenRouter = provider === "openrouter";
-      const isBedrock = provider === "bedrock";
-      const isOpenAI = provider === "openai";
-      const isAnthropic = provider === "anthropic";
-      const isGroq = provider === "groq";
-      const isDeepSeek = provider === "deepseek";
-      const isXAI = provider === "xai";
-      const isMistral = provider === "mistral";
-      const isSakana = provider === "sakana";
-      const isOpencode = provider === "opencode";
+    updateProviderUI(provider2) {
+      const isGemini = provider2 === "gemini";
+      const isZai = provider2 === "zai";
+      const isOpenRouter = provider2 === "openrouter";
+      const isBedrock = provider2 === "bedrock";
+      const isOpenAI = provider2 === "openai";
+      const isAnthropic = provider2 === "anthropic";
+      const isGroq = provider2 === "groq";
+      const isDeepSeek = provider2 === "deepseek";
+      const isXAI = provider2 === "xai";
+      const isMistral = provider2 === "mistral";
+      const isSakana = provider2 === "sakana";
+      const isOpencode = provider2 === "opencode";
       const containers = [
         [elements.geminiApiKeyContainer, isGemini],
         [elements.zaiApiKeyContainer, isZai],
@@ -5218,8 +5218,8 @@ Reason: [NGの場合の理由]`,
       }
     },
     // プロバイダーに応じたモデルリストの更新
-    updateModelOptions(provider) {
-      if (provider === "openrouter") {
+    updateModelOptions(provider2) {
+      if (provider2 === "openrouter") {
         const orSelect = elements.modelNameSelect;
         if (orSelect) {
           Array.from(orSelect.querySelectorAll("optgroup")).forEach((group) => {
@@ -5251,25 +5251,25 @@ Reason: [NGの場合の理由]`,
       const options = Array.from(modelSelect.querySelectorAll("option:not([data-user-defined])"));
       options.forEach((option) => option.remove());
       let models;
-      if (provider === "zai") {
+      if (provider2 === "zai") {
         models = ZAI_MODELS;
-      } else if (provider === "bedrock") {
+      } else if (provider2 === "bedrock") {
         models = BEDROCK_MODELS;
-      } else if (provider === "openai") {
+      } else if (provider2 === "openai") {
         models = OPENAI_MODELS;
-      } else if (provider === "anthropic") {
+      } else if (provider2 === "anthropic") {
         models = ANTHROPIC_MODELS;
-      } else if (provider === "groq") {
+      } else if (provider2 === "groq") {
         models = GROQ_MODELS;
-      } else if (provider === "deepseek") {
+      } else if (provider2 === "deepseek") {
         models = DEEPSEEK_MODELS;
-      } else if (provider === "xai") {
+      } else if (provider2 === "xai") {
         models = XAI_MODELS;
-      } else if (provider === "mistral") {
+      } else if (provider2 === "mistral") {
         models = MISTRAL_MODELS;
-      } else if (provider === "sakana") {
+      } else if (provider2 === "sakana") {
         models = SAKANA_MODELS;
-      } else if (provider === "opencode") {
+      } else if (provider2 === "opencode") {
         models = OPENCODE_MODELS;
       } else {
         models = GEMINI_MODELS;
@@ -5300,9 +5300,9 @@ Reason: [NGの場合の理由]`,
         userDefinedGroup.disabled = false;
         const customText = state.settings && state.settings.customModelsText || {};
         const fetchedModels = state.settings && state.settings.fetchedModels || {};
-        const manualIds = (customText[provider] || "").split(",").map((s) => s.trim()).filter(Boolean);
+        const manualIds = (customText[provider2] || "").split(",").map((s) => s.trim()).filter(Boolean);
         const allExisting = /* @__PURE__ */ new Set([...standardValues, ...manualIds]);
-        const fetchedIds = (fetchedModels[provider] || []).filter((id) => !allExisting.has(id));
+        const fetchedIds = (fetchedModels[provider2] || []).filter((id) => !allExisting.has(id));
         if (fetchedIds.length > 0) {
           const fetchedGroup = document.createElement("optgroup");
           fetchedGroup.label = "API取得モデル";
@@ -5310,7 +5310,7 @@ Reason: [NGの場合の理由]`,
             const opt = document.createElement("option");
             opt.value = id;
             opt.textContent = id;
-            opt.dataset.provider = provider;
+            opt.dataset.provider = provider2;
             fetchedGroup.appendChild(opt);
           });
           modelSelect.appendChild(fetchedGroup);
@@ -5318,25 +5318,25 @@ Reason: [NGの場合の理由]`,
       }
       this.applyFavoriteModelsGroup(modelSelect);
       let defaultModel;
-      if (provider === "zai") {
+      if (provider2 === "zai") {
         defaultModel = DEFAULT_ZAI_MODEL;
-      } else if (provider === "openrouter") {
+      } else if (provider2 === "openrouter") {
         defaultModel = DEFAULT_OPENROUTER_MODEL;
-      } else if (provider === "bedrock") {
+      } else if (provider2 === "bedrock") {
         defaultModel = DEFAULT_BEDROCK_MODEL;
-      } else if (provider === "openai") {
+      } else if (provider2 === "openai") {
         defaultModel = DEFAULT_OPENAI_MODEL;
-      } else if (provider === "anthropic") {
+      } else if (provider2 === "anthropic") {
         defaultModel = DEFAULT_ANTHROPIC_MODEL;
-      } else if (provider === "groq") {
+      } else if (provider2 === "groq") {
         defaultModel = DEFAULT_GROQ_MODEL;
-      } else if (provider === "deepseek") {
+      } else if (provider2 === "deepseek") {
         defaultModel = DEFAULT_DEEPSEEK_MODEL;
-      } else if (provider === "xai") {
+      } else if (provider2 === "xai") {
         defaultModel = DEFAULT_XAI_MODEL;
-      } else if (provider === "mistral") {
+      } else if (provider2 === "mistral") {
         defaultModel = DEFAULT_MISTRAL_MODEL;
-      } else if (provider === "sakana") {
+      } else if (provider2 === "sakana") {
         defaultModel = DEFAULT_SAKANA_MODEL;
       } else {
         defaultModel = DEFAULT_MODEL;
@@ -5347,7 +5347,7 @@ Reason: [NGの場合の理由]`,
       const { model, isFallback } = resolveSelectedModel({
         savedModel: state.settings && state.settings.modelName || currentValue,
         availableValues: allAvailableValues,
-        lastUsed: state.settings.lastModelPerProvider?.[provider],
+        lastUsed: state.settings.lastModelPerProvider?.[provider2],
         defaultModel
       });
       modelSelect.value = model;
@@ -5990,8 +5990,8 @@ Reason: [NGの場合の理由]`,
             }
           }, "onUpdate"),
           getValue: /* @__PURE__ */ __name(() => {
-            const provider = state.settings.apiProvider || "gemini";
-            if (provider === "openrouter" && elements.openrouterModelInput) {
+            const provider2 = state.settings.apiProvider || "gemini";
+            if (provider2 === "openrouter" && elements.openrouterModelInput) {
               return elements.openrouterModelInput.value.trim();
             }
             return elements.modelNameSelect ? elements.modelNameSelect.value.trim() : "";
@@ -8809,7 +8809,7 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
         console.log("[AutoTitle] currentChatId なしでスキップ");
         return;
       }
-      const provider = state.settings.apiProvider || "gemini";
+      const provider2 = state.settings.apiProvider || "gemini";
       const firstUserContent = (typeof userMsgs[0].content === "string" ? userMsgs[0].content : JSON.stringify(userMsgs[0].content)).substring(0, 300);
       const firstModelContent = (typeof modelMsgs[0].content === "string" ? modelMsgs[0].content : "").substring(0, 300);
       const titlePrompt = `以下の会話の内容を端的に表すタイトルを20文字以内で作成してください。タイトルのみを出力してください（説明・引用符不要）。
@@ -8818,7 +8818,7 @@ ${JSON.stringify(attachmentDataBlock, null, 2)}
 AI: ${firstModelContent}`;
       try {
         let title = null;
-        if (provider === "gemini") {
+        if (provider2 === "gemini") {
           const apiKey = state.settings.apiKey;
           if (!apiKey) return;
           const endpoint = `${GEMINI_API_BASE_URL}gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
@@ -8836,7 +8836,7 @@ AI: ${firstModelContent}`;
             const data = await resp.json();
             title = data.candidates?.[0]?.content?.parts?.find((p) => p.text && p.thought !== true)?.text?.trim();
           }
-        } else if (provider === "anthropic") {
+        } else if (provider2 === "anthropic") {
           const apiKey = state.settings.anthropicApiKey;
           if (!apiKey) return;
           const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -8884,14 +8884,14 @@ AI: ${firstModelContent}`;
               ""
             ) + "/chat/completions"
           };
-          const apiKey = apiKeyMap[provider];
-          const baseUrl = baseUrlMap[provider];
+          const apiKey = apiKeyMap[provider2];
+          const baseUrl = baseUrlMap[provider2];
           if (!apiKey || !baseUrl) return;
           const titleModelMap = {
             deepseek: DEFAULT_DEEPSEEK_MODEL
             // 'deepseek-chat'（非リーズナー）
           };
-          const titleModel = titleModelMap[provider] || state.settings.modelName;
+          const titleModel = titleModelMap[provider2] || state.settings.modelName;
           const resp = await fetch(baseUrl, {
             method: "POST",
             headers: {
@@ -8974,7 +8974,8 @@ AI: ${firstModelContent}`;
   __name(getOpencodeSessionFetchInit, "getOpencodeSessionFetchInit");
   var apiUtils = {
     // Gemini形式からOpenAI形式への変換
-    convertGeminiToOpenAIFormat(messagesForApi) {
+    convertGeminiToOpenAIFormat(messagesForApi, opts = {}) {
+      const cfgPassthroughReasoning = opts.passthroughReasoning === true;
       const openAIMessages = [];
       for (const geminiMsg of messagesForApi) {
         const role = geminiMsg.role === "model" ? "assistant" : geminiMsg.role === "tool" ? "tool" : "user";
@@ -9026,6 +9027,10 @@ AI: ${firstModelContent}`;
             }
           }
           const message = { role };
+          const thoughtTexts = parts.filter((p) => p.thought && typeof p.text === "string" && p.text).map((p) => p.text);
+          if (cfgPassthroughReasoning && thoughtTexts.length > 0 && role === "model") {
+            message.reasoning_content = thoughtTexts.join("\n");
+          }
           if (contentParts.length > 0) {
             if (contentParts.length === 1 && contentParts[0].type === "text") {
               message.content = contentParts[0].text;
@@ -9611,7 +9616,9 @@ AI: ${firstModelContent}`;
         signal = state.abortController.signal;
       }
       const model = state.settings.modelName || cfg.defaultModel;
-      const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi);
+      const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
+        passthroughReasoning: provider === "opencode"
+      });
       if (systemInstruction && systemInstruction.parts && systemInstruction.parts.length > 0) {
         const systemText = systemInstruction.parts[0].text;
         if (systemText) {
@@ -10293,8 +10300,8 @@ ${knowledgeText}`;
     // ナレッジ注入もここで一括して行う（旧 app.js のモンキーパッチを統合）。
     async callApi(messagesForApi, generationConfig, systemInstruction, tools = null, forceCalling = false, signal = null) {
       systemInstruction = this._injectProjectKnowledge(systemInstruction);
-      const provider = state.settings.apiProvider || "gemini";
-      switch (provider) {
+      const provider2 = state.settings.apiProvider || "gemini";
+      switch (provider2) {
         case "zai":
           return await this._callOpenAICompatibleWithTools({
             label: "Z.ai",
@@ -10378,11 +10385,11 @@ ${knowledgeText}`;
     );
   }
   __name(isRetiredModelError, "isRetiredModelError");
-  function suggestSuccessor(deadModel, provider) {
+  function suggestSuccessor(deadModel, provider2) {
     if (deadModel && RETIRED_MODEL_MAP[deadModel]) {
       return { model: RETIRED_MODEL_MAP[deadModel], fromMap: true };
     }
-    const fallback = PROVIDER_DEFAULT_MODEL[provider];
+    const fallback = PROVIDER_DEFAULT_MODEL[provider2];
     if (fallback && fallback !== deadModel) {
       return { model: fallback, fromMap: false };
     }
@@ -10410,8 +10417,8 @@ ${knowledgeText}`;
     }
   }
   __name(applyModelSwitch, "applyModelSwitch");
-  async function resolveRetiredModel({ deadModel, provider, settingKey }) {
-    const suggestion = suggestSuccessor(deadModel, provider);
+  async function resolveRetiredModel({ deadModel, provider: provider2, settingKey }) {
+    const suggestion = suggestSuccessor(deadModel, provider2);
     if (!suggestion) return null;
     if (!suggestion.fromMap) {
       const ok = await uiUtils.showCustomConfirm(
@@ -13572,7 +13579,7 @@ ${msg}`);
   __name(summarizeUsage, "summarizeUsage");
 
   // src/app-logic/memory.js
-  function getOpenAICompatConfig(provider) {
+  function getOpenAICompatConfig(provider2) {
     const keys = {
       openai: state.settings.openaiApiKey,
       groq: state.settings.groqApiKey,
@@ -13596,11 +13603,11 @@ ${msg}`);
       // OpenCode Go は CORS 非対応のためプロキシ経由（未設定ならデフォルトプロキシ）
       opencode: (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, "") + "/chat/completions"
     };
-    return { apiKey: keys[provider], baseUrl: urls[provider] };
+    return { apiKey: keys[provider2], baseUrl: urls[provider2] };
   }
   __name(getOpenAICompatConfig, "getOpenAICompatConfig");
   async function runAuxiliaryCompletion({
-    provider,
+    provider: provider2,
     model,
     systemPrompt,
     userContent,
@@ -13608,7 +13615,7 @@ ${msg}`);
     maxTokens = 4096
   }) {
     let endpoint, headers, body, parse;
-    if (provider === "anthropic") {
+    if (provider2 === "anthropic") {
       const apiKey = state.settings.anthropicApiKey;
       if (!apiKey) throw new Error("Anthropic APIキーが設定されていません。");
       const useModel = model && model.startsWith("claude") ? model : DEFAULT_ANTHROPIC_MODEL;
@@ -13626,7 +13633,7 @@ ${msg}`);
         messages: [{ role: "user", content: userContent }]
       };
       parse = /* @__PURE__ */ __name((d) => d.content?.find((c) => c.type === "text")?.text, "parse");
-    } else if (provider === "gemini") {
+    } else if (provider2 === "gemini") {
       const apiKey = state.settings.apiKey;
       if (!apiKey) throw new Error("Gemini APIキーが設定されていません。");
       endpoint = `${GEMINI_API_BASE_URL}${model}:generateContent`;
@@ -13639,7 +13646,7 @@ ${msg}`);
       };
       parse = /* @__PURE__ */ __name((d) => d.candidates?.[0]?.content?.parts?.[0]?.text, "parse");
     } else {
-      const { apiKey, baseUrl } = getOpenAICompatConfig(provider);
+      const { apiKey, baseUrl } = getOpenAICompatConfig(provider2);
       if (!apiKey || !baseUrl) throw new Error("APIキーが設定されていません。");
       endpoint = baseUrl;
       headers = { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` };
@@ -13678,7 +13685,7 @@ ${msg}`);
     return fallback;
   }
   __name(inferProviderFromModel, "inferProviderFromModel");
-  function getMemoryLearnModel(provider) {
+  function getMemoryLearnModel(provider2) {
     const lightModels = {
       gemini: "gemini-2.5-flash",
       anthropic: "claude-haiku-4-5-20251001",
@@ -13687,7 +13694,7 @@ ${msg}`);
       mistral: "mistral-small-latest",
       opencode: "deepseek-v4-flash"
     };
-    return lightModels[provider] || state.settings.modelName;
+    return lightModels[provider2] || state.settings.modelName;
   }
   __name(getMemoryLearnModel, "getMemoryLearnModel");
   var memoryMethods = {
@@ -13907,8 +13914,8 @@ ${flagContent}`
       }
     },
     async triggerAutoMemorySave() {
-      const provider = state.settings.apiProvider || "gemini";
-      const hasKey = provider === "anthropic" ? !!state.settings.anthropicApiKey : provider === "gemini" ? !!state.settings.apiKey : !!getOpenAICompatConfig(provider).apiKey;
+      const provider2 = state.settings.apiProvider || "gemini";
+      const hasKey = provider2 === "anthropic" ? !!state.settings.anthropicApiKey : provider2 === "gemini" ? !!state.settings.apiKey : !!getOpenAICompatConfig(provider2).apiKey;
       if (!state.activeProfileId || !hasKey) {
         console.error("[Memory] APIキーが未設定のため、自動学習をスキップしました。");
         return;
@@ -13965,10 +13972,10 @@ ${flagContent}`
             ---
 
             [抽出結果]`;
-        const modelForMemory = getMemoryLearnModel(provider);
-        console.log("[Memory] 自動学習 provider:", provider, "model:", modelForMemory);
+        const modelForMemory = getMemoryLearnModel(provider2);
+        console.log("[Memory] 自動学習 provider:", provider2, "model:", modelForMemory);
         const { text: summaryText } = await runAuxiliaryCompletion({
-          provider,
+          provider: provider2,
           model: modelForMemory,
           systemPrompt: "あなたはユーザーとの会話から永続的な個人情報を抽出するアシスタントです。",
           userContent: summarizationPrompt,
@@ -14152,7 +14159,7 @@ ${flagContent}`
     },
     async _callSummaryApi(originalText, _isRetry = false) {
       const summaryModel = state.settings.summaryModelName || state.settings.modelName;
-      const provider = inferProviderFromModel(
+      const provider2 = inferProviderFromModel(
         summaryModel,
         state.settings.apiProvider || "gemini"
       );
@@ -14163,10 +14170,10 @@ ${originalText}`;
           "--- [要約API] リクエスト開始 --- 使用モデル:",
           summaryModel,
           "provider:",
-          provider
+          provider2
         );
         const { text: summaryText, raw } = await runAuxiliaryCompletion({
-          provider,
+          provider: provider2,
           model: summaryModel,
           systemPrompt: state.settings.summarySystemPrompt,
           userContent,
@@ -14192,7 +14199,7 @@ ${originalText}`;
         if (!_isRetry && isRetiredModelError(error.message)) {
           const newModel = await resolveRetiredModel({
             deadModel: summaryModel,
-            provider,
+            provider: provider2,
             settingKey: "summaryModelName"
           });
           if (newModel) {
@@ -15127,14 +15134,14 @@ ${summaryText}` : summaryText;
           window.state.settings.modelName = newModel;
           mainSelect.value = newModel;
           if (selectedOpt && selectedOpt.dataset.provider) {
-            const provider = selectedOpt.dataset.provider;
+            const provider2 = selectedOpt.dataset.provider;
             const apiProvSelect = document.getElementById("api-provider");
-            if (apiProvSelect && window.state.settings.apiProvider !== provider) {
-              window.state.settings.apiProvider = provider;
-              apiProvSelect.value = provider;
+            if (apiProvSelect && window.state.settings.apiProvider !== provider2) {
+              window.state.settings.apiProvider = provider2;
+              apiProvSelect.value = provider2;
               apiProvSelect.dispatchEvent(new Event("change"));
               if (window.state.activeProfile) {
-                window.state.activeProfile.settings.apiProvider = provider;
+                window.state.activeProfile.settings.apiProvider = provider2;
                 if (window.dbUtils && typeof window.dbUtils.updateProfile === "function") {
                   await window.dbUtils.updateProfile(window.state.activeProfile);
                 }
@@ -15632,10 +15639,10 @@ ${pageText}
           fetchModelsBtn.disabled = true;
           fetchModelsBtn.textContent = "取得中...";
           const results = [];
-          function mergeModels(provider, newModels) {
+          function mergeModels(provider2, newModels) {
             if (!newModels.length) return;
             if (!state.settings.fetchedModels) state.settings.fetchedModels = {};
-            state.settings.fetchedModels[provider] = newModels;
+            state.settings.fetchedModels[provider2] = newModels;
           }
           __name(mergeModels, "mergeModels");
           async function httpErrorDetail(r) {
@@ -15649,19 +15656,19 @@ ${pageText}
             }
           }
           __name(httpErrorDetail, "httpErrorDetail");
-          async function fetchOpenAICompat(url, apiKey, provider, filter, extraInit = {}) {
+          async function fetchOpenAICompat(url, apiKey, provider2, filter, extraInit = {}) {
             try {
               const r = await fetch(url, { headers: { "Authorization": `Bearer ${apiKey}`, ...extraInit.headers || {} } });
               if (!r.ok) {
-                results.push(`${provider}: HTTP ${r.status}${await httpErrorDetail(r)}`);
+                results.push(`${provider2}: HTTP ${r.status}${await httpErrorDetail(r)}`);
                 return;
               }
               const d = await r.json();
               const models = (d.data || []).map((m) => m.id).filter((id) => id && (!filter || filter(id)));
-              mergeModels(provider, models);
-              results.push(`${provider}: ${models.length}件`);
+              mergeModels(provider2, models);
+              results.push(`${provider2}: ${models.length}件`);
             } catch (e) {
-              results.push(`${provider}: エラー (${e.message})`);
+              results.push(`${provider2}: エラー (${e.message})`);
             }
           }
           __name(fetchOpenAICompat, "fetchOpenAICompat");
@@ -15861,17 +15868,17 @@ ${pageText}
         mainSelect.addEventListener("change", async (e) => {
           const selectedOpt = mainSelect.options[mainSelect.selectedIndex];
           const newModel = mainSelect.value;
-          let provider = null;
+          let provider2 = null;
           if (selectedOpt && selectedOpt.dataset.provider) {
-            provider = selectedOpt.dataset.provider;
+            provider2 = selectedOpt.dataset.provider;
           } else if (newModel.startsWith("gemini-")) {
-            provider = "gemini";
+            provider2 = "gemini";
           }
-          if (provider && state.settings.apiProvider !== provider) {
-            state.settings.apiProvider = provider;
-            apiProvSelect.value = provider;
+          if (provider2 && state.settings.apiProvider !== provider2) {
+            state.settings.apiProvider = provider2;
+            apiProvSelect.value = provider2;
             apiProvSelect.dispatchEvent(new Event("change"));
-            await persistCustomSetting("apiProvider", provider);
+            await persistCustomSetting("apiProvider", provider2);
           }
         });
       }
