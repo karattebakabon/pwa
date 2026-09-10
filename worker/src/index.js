@@ -12,6 +12,10 @@
 //   - 設置者以外の不正利用を防ぐため、任意の共有トークンでの簡易認証に対応
 //     （環境変数 X_ACCESS_TOKEN を設定した場合のみ有効。未設定なら誰でも叩けるので注意）
 //   - 対応メソッド: GET (モデル一覧) / POST (チャット)
+//   - x-opencode-session を上流へ中継する。OpenCode は同じ値のリクエストを
+//     同じ上流バックエンドへ固定するため、PWA 側で localStorage に保持した
+//     会話単位のランダムIDをそのまま転送すればプロンプトキャッシュが温まる
+//     （Hermes Agent の agent/opencode_affinity.py と同じ設計）
 
 const UPSTREAM_BASE = 'https://opencode.ai/zen/go/v1';
 
@@ -22,7 +26,7 @@ function corsHeaders(request) {
     return {
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Access-Token',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Access-Token, X-OpenCode-Session',
         'Access-Control-Max-Age': '86400',
     };
 }
@@ -60,7 +64,7 @@ export default {
 
         // 上流へ中継（Authorization を含めヘッダーをそのまま転送）
         const upstreamHeaders = new Headers();
-        for (const name of ['Authorization', 'Content-Type', 'Accept']) {
+        for (const name of ['Authorization', 'Content-Type', 'Accept', 'X-OpenCode-Session']) {
             const v = request.headers.get(name);
             if (v) upstreamHeaders.set(name, v);
         }
