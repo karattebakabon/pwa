@@ -857,9 +857,11 @@ export const apiUtils = {
 
         // Gemini形式のメッセージをOpenAI形式に変換
         // OpenCode 経由のときは思考パートを reasoning_content として履歴へ戻す
-        // （thinking モデルの400 "must be passed back to the API" 対策）
+        // （thinking モデルの400 "must be passed back to the API" 対策）。
+        // provider 判別はプロバイダー非依存のこの共通関数からは直接参照できないため
+        // cfg.passthroughReasoning で受け取る。
         const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
-            passthroughReasoning: provider === 'opencode'
+            passthroughReasoning: cfg.passthroughReasoning === true
         });
 
         // システムプロンプトの処理
@@ -1729,6 +1731,8 @@ export const apiUtils = {
                     defaultModel: DEFAULT_OPENCODE_MODEL,
                     getApiKey: () => state.settings.opencodeApiKey,
                     missingKeyMessage: 'OpenCode Go APIキーが設定されていません。',
+                    // thinking モデルの履歴に reasoning_content を戻して送る（400対策）
+                    passthroughReasoning: true,
                     // x-opencode-session で上流バックエンドを固定し、プロンプトキャッシュを温める
                     extraHeaders: () => getOpencodeSessionExtraHeaders(),
                     verboseError: false
