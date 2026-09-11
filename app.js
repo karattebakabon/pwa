@@ -11815,6 +11815,11 @@ ${knowledgeText}`;
     _prepareApiHistory(baseMessages) {
       console.log("[API Prep] 履歴をAPIフォーマットに変換します。");
       const messagesForApi = JSON.parse(JSON.stringify(baseMessages));
+      messagesForApi.forEach((msg) => {
+        if (msg.role === "model" && msg.thoughtSummary && typeof msg.thoughtSummary === "string" && msg.thoughtSummary.trim() !== "") {
+          msg._thoughtSummaryForApi = msg.thoughtSummary;
+        }
+      });
       let historyToProcess;
       if (state.currentSummarizedContext && state.currentSummarizedContext.summaryText) {
         console.log("[API Prep] 要約コンテキストを検出。API履歴を圧縮します。");
@@ -11891,7 +11896,13 @@ ${summaryText}`,
           }
         }
         return { role: msg.role === "tool" ? "tool" : msg.role === "model" ? "model" : "user", parts };
-      }).filter((c) => c.parts.length > 0);
+      }).filter((c) => c.parts.length > 0).map((msg) => {
+        if (msg.role === "model" && msg._thoughtSummaryForApi) {
+          msg.parts.unshift({ text: msg._thoughtSummaryForApi, thought: true });
+          delete msg._thoughtSummaryForApi;
+        }
+        return msg;
+      });
     },
     // -------------------------------
     // --- 背景画像ハンドラ ---

@@ -33,6 +33,18 @@ export const attachmentMethods = {
         // ディープコピーで元のメッセージ配列を保護する
         const messagesForApi = JSON.parse(JSON.stringify(baseMessages));
 
+        // thinkingモデルの履歴返送（reasoning_content）復元処理に先立って、
+        // 永続化された thoughtSummary（文字列）を thought:true パートへ再構成する。
+        // OpenCode (Console Go) 等 thinking モードのバックエンドは、アシスタント直近ターンの
+        // reasoning_content が無いと "The `reasoning_content` in the thinking mode
+        // must be passed back to the API" (400) で拒否する。
+        // thoughtParts は前ターンで失われているため、thoughtSummary から復元する。
+        messagesForApi.forEach(msg => {
+            if (msg.role === 'model' && msg.thoughtSummary && typeof msg.thoughtSummary === 'string' && msg.thoughtSummary.trim() !== '') {
+                msg._thoughtSummaryForApi = msg.thoughtSummary;
+            }
+        });
+
         let historyToProcess;
 
         // 要約コンテキストが存在する場合、API送信用の履歴を動的に構築する
@@ -116,7 +128,16 @@ export const attachmentMethods = {
                 }
             }
             return { role: msg.role === 'tool' ? 'tool' : (msg.role === 'model' ? 'model' : 'user'), parts };
-        }).filter(c => c.parts.length > 0);
+        }).filter(c => c.parts.length > 0).map(msg => {
+            // thinkingモデル用: thoughtSummary を thought:true パートとして復元。
+            // convertGeminiToOpenAIFormat がこれを reasoning_content に変換して
+            // 上流（Console Go 等の thinking バックエンド）へ送り返す。
+            if (msg.role === 'model' && msg._thoughtSummaryForApi) {
+                msg.parts.unshift({ text: msg._thoughtSummaryForApi, thought: true });
+                delete msg._thoughtSummaryForApi;
+            }
+            return msg;
+        });
     },
 
 
