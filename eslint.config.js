@@ -22,6 +22,7 @@ export default [
             'app.js', // ← src/main.js から生成されるバンドル（自動生成物）
             'coverage/**',
             '.eslint-report.json',
+            'worker/.wrangler/**', // ← wrangler dev のローカル残骸（検証時の一時生成物）
         ],
     },
 

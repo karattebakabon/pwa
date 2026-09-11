@@ -52,10 +52,20 @@ export function getOpencodeSessionFetchInit() {
     return { headers: getOpencodeSessionExtraHeaders() };
 }
 
+// DeepSeek / Kimi / MiMo 系モデル（モデル名に含まれる）は thinking モードで
+// 「全 assistant メッセージの reasoning_content 返送」を要求する。
+// 欠落は400、空文字も400になるため、値が無い場合は半角スペース1個で埋める
+// （Hermes Agent の _REASONING_ECHO_RULES / パディングポリシーと同じ挙動）。
+function needsReasoningEchoPad(model) {
+    const m = String(model || '').toLowerCase();
+    return m.includes('deepseek') || m.includes('kimi') || m.includes('mimo');
+}
+
 export const apiUtils = {
     // Gemini形式からOpenAI形式への変換
     convertGeminiToOpenAIFormat(messagesForApi, opts = {}) {
         const cfgPassthroughReasoning = opts.passthroughReasoning === true;
+        const cfgReasoningEchoPad = opts.reasoningEchoPad === true;
         const openAIMessages = [];
         
         for (const geminiMsg of messagesForApi) {
@@ -135,8 +145,15 @@ export const apiUtils = {
                 const thoughtTexts = parts
                     .filter(p => p.thought && typeof p.text === 'string' && p.text)
                     .map(p => p.text);
-                if (cfgPassthroughReasoning && thoughtTexts.length > 0 && role === 'model') {
-                    message.reasoning_content = thoughtTexts.join('\n');
+                if (cfgPassthroughReasoning && role === 'assistant') {
+                    if (thoughtTexts.length > 0) {
+                        message.reasoning_content = thoughtTexts.join('\n');
+                    } else if (cfgReasoningEchoPad) {
+                        // DeepSeek / Kimi / MiMo の thinking モードは全 assistant メッセージに
+                        // reasoning_content の返送を要求する（欠落で400・空文字も400になる）。
+                        // 実思考が無いターンは半角スペース1個で埋めて要件を満たす。
+                        message.reasoning_content = ' ';
+                    }
                 }
 
                 // コンテンツの設定
@@ -860,8 +877,11 @@ export const apiUtils = {
         // （thinking モデルの400 "must be passed back to the API" 対策）。
         // provider 判別はプロバイダー非依存のこの共通関数からは直接参照できないため
         // cfg.passthroughReasoning で受け取る。
+        // さらに DeepSeek/Kimi/MiMo 系は「全 assistant メッセージに reasoning_content 必須」
+        // のため、実思考が無いターンは半角スペースでパディングする（reasoningEchoPad）。
         const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
-            passthroughReasoning: cfg.passthroughReasoning === true
+            passthroughReasoning: cfg.passthroughReasoning === true,
+            reasoningEchoPad: needsReasoningEchoPad(model)
         });
 
         // システムプロンプトの処理

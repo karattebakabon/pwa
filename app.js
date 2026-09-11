@@ -1888,7 +1888,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25";
+  var APP_VERSION = "1.25.56";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
@@ -8974,10 +8974,16 @@ AI: ${firstModelContent}`;
     return { headers: getOpencodeSessionExtraHeaders() };
   }
   __name(getOpencodeSessionFetchInit, "getOpencodeSessionFetchInit");
+  function needsReasoningEchoPad(model) {
+    const m = String(model || "").toLowerCase();
+    return m.includes("deepseek") || m.includes("kimi") || m.includes("mimo");
+  }
+  __name(needsReasoningEchoPad, "needsReasoningEchoPad");
   var apiUtils = {
     // Gemini形式からOpenAI形式への変換
     convertGeminiToOpenAIFormat(messagesForApi, opts = {}) {
       const cfgPassthroughReasoning = opts.passthroughReasoning === true;
+      const cfgReasoningEchoPad = opts.reasoningEchoPad === true;
       const openAIMessages = [];
       for (const geminiMsg of messagesForApi) {
         const role = geminiMsg.role === "model" ? "assistant" : geminiMsg.role === "tool" ? "tool" : "user";
@@ -9030,8 +9036,12 @@ AI: ${firstModelContent}`;
           }
           const message = { role };
           const thoughtTexts = parts.filter((p) => p.thought && typeof p.text === "string" && p.text).map((p) => p.text);
-          if (cfgPassthroughReasoning && thoughtTexts.length > 0 && role === "model") {
-            message.reasoning_content = thoughtTexts.join("\n");
+          if (cfgPassthroughReasoning && role === "assistant") {
+            if (thoughtTexts.length > 0) {
+              message.reasoning_content = thoughtTexts.join("\n");
+            } else if (cfgReasoningEchoPad) {
+              message.reasoning_content = " ";
+            }
           }
           if (contentParts.length > 0) {
             if (contentParts.length === 1 && contentParts[0].type === "text") {
@@ -9619,7 +9629,8 @@ AI: ${firstModelContent}`;
       }
       const model = state.settings.modelName || cfg.defaultModel;
       const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
-        passthroughReasoning: cfg.passthroughReasoning === true
+        passthroughReasoning: cfg.passthroughReasoning === true,
+        reasoningEchoPad: needsReasoningEchoPad(model)
       });
       if (systemInstruction && systemInstruction.parts && systemInstruction.parts.length > 0) {
         const systemText = systemInstruction.parts[0].text;
