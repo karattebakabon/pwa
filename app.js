@@ -1598,6 +1598,7 @@ ${relationship_context}`;
       openrouterApiKeyContainer: document.getElementById("openrouter-api-key-container"),
       openrouterModelInput: document.getElementById("openrouter-model-input"),
       openrouterModelInputContainer: document.getElementById("openrouter-model-input-container"),
+      openrouterModelList: document.getElementById("openrouter-model-list"),
       bedrockAccessKeyInput: document.getElementById("bedrock-access-key"),
       bedrockSecretKeyInput: document.getElementById("bedrock-secret-key"),
       bedrockRegionSelect: document.getElementById("bedrock-region"),
@@ -1874,6 +1875,7 @@ ${relationship_context}`;
   var GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
   var ZAI_API_BASE_URL = "https://api.z.ai/api/paas/v4/chat/completions";
   var OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
+  var OPENROUTER_FREE_TIMEOUT_SECONDS = 180;
   var GROQ_API_BASE_URL = "https://api.groq.com/openai/v1/chat/completions";
   var DEEPSEEK_API_BASE_URL = "https://api.deepseek.com/chat/completions";
   var XAI_API_BASE_URL = "https://api.x.ai/v1/chat/completions";
@@ -1888,7 +1890,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.56";
+  var APP_VERSION = "1.25.60";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
@@ -2069,6 +2071,11 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.60": [
+      "OpenRouter のモデル一覧を「全プロバイダーの最新モデルを取得」で取得できるようにしました。これまでは OpenRouter だけ対象外で、モデルIDを手で入力するしかありませんでした（例: google/gemma-4-31b-it）。APIキーを入れていなくても一覧だけは取得します。",
+      "OpenRouter の無料モデル（ID が :free で終わるもの）が「応答生成中...」のまま止まってしまう問題に対策しました。無料モデルは提供元が1社しかないため、混雑すると上流が応答を返さず接続が保持され続けます。無料モデルのときだけ APIタイムアウト（既定180秒）を自動でかけ、429（レート制限）は Retry-After の指定どおり待ってから再試行するようにしました。",
+      "※ 待ち時間が長すぎるレート制限（1日の上限など）は、何秒待てばよいかを添えてエラーにします。無料モデルは時間をおくか、有料版（:free なし）をお使いください。"
+    ],
     1.53: [
       "Gemini のセンシティブフィルター設定を1箇所にまとめました。これまで同じ内容が6箇所（チャット送信・思考プロセスの翻訳・要約/メモリ学習・タイトル生成・校正）にコピーされていて、片方だけ直すと食い違う状態でした。内部の整理なので、フィルターの効き方はこれまでと変わりません。",
       "設定内容もこれまでどおり、調整できる4カテゴリ（ハラスメント・ヘイト・性的表現・危険な行為）すべてを BLOCK_NONE にしています。つまり以前から実質フィルターオフのままです。",
@@ -5232,6 +5239,16 @@ Reason: [NGの場合の理由]`,
           );
           this.applyFavoriteModelsGroup(orSelect);
         }
+        if (elements.openrouterModelList) {
+          const fetched = (state.settings && state.settings.fetchedModels ? state.settings.fetchedModels.openrouter : null) || [];
+          const list = elements.openrouterModelList;
+          list.textContent = "";
+          fetched.forEach((id) => {
+            const opt = document.createElement("option");
+            opt.value = id;
+            list.appendChild(opt);
+          });
+        }
         if (elements.openrouterModelInput) {
           const currentModel = state.settings.modelName || DEFAULT_OPENROUTER_MODEL;
           elements.openrouterModelInput.value = currentModel;
@@ -5391,7 +5408,8 @@ Reason: [NGの場合の理由]`,
           );
           const shouldShowNotice = !acknowledgedVersion || acknowledgedVersion !== currentVersion || legacyVersion && legacyVersion !== currentVersion;
           if (shouldShowNotice) {
-            const newFeatures = VERSION_HISTORY[currentVersion];
+            const historyKey = "1." + String(currentVersion).split(".").pop();
+            const newFeatures = VERSION_HISTORY[currentVersion] || VERSION_HISTORY[historyKey];
             let message = `アプリがバージョン ${currentVersion} にアップデートされました。`;
             if (newFeatures && newFeatures.length > 0) {
               message += "\n\n主な更新内容:\n- " + newFeatures.join("\n- ");
@@ -9471,6 +9489,8 @@ AI: ${firstModelContent}`;
           const error = new Error(errorMsg);
           error.status = response.status;
           error.data = errorData;
+          const retryAfterHeader = response.headers.get("Retry-After");
+          if (retryAfterHeader) error.retryAfter = retryAfterHeader;
           throw error;
         }
         return response;
@@ -9782,6 +9802,8 @@ AI: ${firstModelContent}`;
           const error = new Error(errorMsg);
           error.status = response.status;
           error.data = errorData;
+          const retryAfterHeader = response.headers.get("Retry-After");
+          if (retryAfterHeader) error.retryAfter = retryAfterHeader;
           throw error;
         }
         const openAIResponse = await response.json();
@@ -10278,6 +10300,8 @@ AI: ${firstModelContent}`;
         const err = await response.json().catch(() => ({}));
         const e = new Error(`${providerName} APIエラー: ${err.error?.message || response.statusText}`);
         e.status = response.status;
+        const retryAfterHeader = response.headers.get("Retry-After");
+        if (retryAfterHeader) e.retryAfter = retryAfterHeader;
         throw e;
       }
       const data = await response.json();
@@ -10378,6 +10402,32 @@ ${knowledgeText}`;
       }
     }
   };
+
+  // src/utils/retry.js
+  function isRetryableStatus(status) {
+    if (!status) return true;
+    if (status === 429) return true;
+    if (status === 408 || status === 409 || status === 425) return true;
+    return status >= 500;
+  }
+  __name(isRetryableStatus, "isRetryableStatus");
+  function parseRetryAfter(value, now = Date.now()) {
+    if (value === null || value === void 0) return null;
+    const s = String(value).trim();
+    if (!s) return null;
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      return Math.max(0, Math.round(parseFloat(s) * 1e3));
+    }
+    const t = Date.parse(s);
+    if (Number.isNaN(t)) return null;
+    return Math.max(0, t - now);
+  }
+  __name(parseRetryAfter, "parseRetryAfter");
+  function maxRateLimitWaitMs(maxBackoffDelaySeconds) {
+    const base = Number(maxBackoffDelaySeconds) > 0 ? Number(maxBackoffDelaySeconds) : 60;
+    return Math.max(base, 60) * 1e3 * 5;
+  }
+  __name(maxRateLimitWaitMs, "maxRateLimitWaitMs");
 
   // src/app-logic/retired-model.js
   var PROVIDER_DEFAULT_MODEL = {
@@ -10555,7 +10605,7 @@ ${knowledgeText}`;
           if (error.name === "AbortError") {
             throw error;
           }
-          if (error.status && error.status >= 400 && error.status < 500) {
+          if (!isRetryableStatus(error.status)) {
             console.error(`リトライ不可の校正エラー (ステータス: ${error.status})。`, error);
             throw error;
           }
@@ -11582,8 +11632,11 @@ ${knowledgeText}`;
       if (!state.abortController) {
         state.abortController = new AbortController();
       }
-      const timeoutEnabled = state.settings.enableApiTimeout || false;
-      const timeoutMs = timeoutEnabled ? (state.settings.apiTimeoutSeconds || 90) * 1e3 : null;
+      const isOpenRouterFreeModel = (state.settings.apiProvider || "gemini") === "openrouter" && String(state.settings.modelName || "").trim().endsWith(":free");
+      const timeoutEnabled = state.settings.enableApiTimeout || isOpenRouterFreeModel;
+      const timeoutSeconds = state.settings.apiTimeoutSeconds || (isOpenRouterFreeModel ? OPENROUTER_FREE_TIMEOUT_SECONDS : 90);
+      const timeoutMs = timeoutEnabled ? timeoutSeconds * 1e3 : null;
+      let retryAfterDelayMs = null;
       if (timeoutEnabled) {
         console.log(`[Timeout] APIタイムアウト有効: ${timeoutMs}ms`);
       } else {
@@ -11600,7 +11653,10 @@ ${knowledgeText}`;
           }
           if (attempt > 0) {
             let delay;
-            if (state.settings.useFixedRetryDelay) {
+            if (retryAfterDelayMs !== null) {
+              delay = retryAfterDelayMs;
+              retryAfterDelayMs = null;
+            } else if (state.settings.useFixedRetryDelay) {
               delay = state.settings.fixedRetryDelaySeconds * 1e3;
             } else {
               const exponentialDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
@@ -11719,7 +11775,8 @@ ${knowledgeText}`;
             timeoutId = null;
           }
           lastError = error;
-          if (error.name === "AbortError" && attemptController.signal.aborted && !state.abortController?.signal.aborted) {
+          const abortedByTimeout = attemptController.signal.aborted && !state.abortController?.signal.aborted;
+          if (abortedByTimeout) {
             const timeoutError = new Error(`APIタイムアウト: ${timeoutMs}ms以内にレスポンスが返りませんでした。`);
             timeoutError.isTimeout = true;
             lastError = timeoutError;
@@ -11729,7 +11786,20 @@ ${knowledgeText}`;
             console.error("待機中または通信中に中断されました。リトライを中止します。", error);
             throw error;
           }
-          if (error.status && error.status >= 400 && error.status < 500) {
+          if (error.status === 429) {
+            const waitMs = parseRetryAfter(error.retryAfter);
+            if (waitMs !== null && waitMs > maxRateLimitWaitMs(state.settings.maxBackoffDelaySeconds)) {
+              const rateLimitError = new Error(
+                `APIのレート制限に達しました (HTTP 429)。約${Math.ceil(waitMs / 1e3)}秒待つと再試行できます。無料モデル（:free）はリクエスト数に上限があるため、時間をおくか有料版をお使いください。`
+              );
+              rateLimitError.status = 429;
+              rateLimitError.data = error.data;
+              console.error("レート制限の待ち時間が長いためリトライを中止します。", error);
+              throw rateLimitError;
+            }
+            if (waitMs !== null) retryAfterDelayMs = Math.max(waitMs, 1e3);
+            console.warn("レート制限 (HTTP 429) のため再試行します。", error);
+          } else if (!isRetryableStatus(error.status)) {
             console.error(`リトライ不可のエラー (ステータス: ${error.status})。リトライを中止します。`, error);
             throw error;
           }
@@ -15684,7 +15754,9 @@ ${pageText}
           __name(httpErrorDetail, "httpErrorDetail");
           async function fetchOpenAICompat(url, apiKey, provider, filter, extraInit = {}) {
             try {
-              const r = await fetch(url, { headers: { "Authorization": `Bearer ${apiKey}`, ...extraInit.headers || {} } });
+              const headers = { ...extraInit.headers || {} };
+              if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+              const r = await fetch(url, { headers });
               if (!r.ok) {
                 results.push(`${provider}: HTTP ${r.status}${await httpErrorDetail(r)}`);
                 return;
@@ -15739,6 +15811,10 @@ ${pageText}
             );
           }
           const compatList = [
+            // OpenRouter の /v1/models は認証不要の公開エンドポイント（CORS許可済み）。
+            // ここを外していたため「全プロバイダーの最新モデルを取得」で OpenRouter だけ
+            // 取得できず、モデルIDを手入力するしかなかった。キー未設定でも取得する。
+            { key: "openrouter", url: "https://openrouter.ai/api/v1/models", apiKey: state.settings.openrouterApiKey, noAuthOk: true },
             { key: "groq", url: "https://api.groq.com/openai/v1/models", apiKey: state.settings.groqApiKey },
             { key: "deepseek", url: "https://api.deepseek.com/v1/models", apiKey: state.settings.deepseekApiKey },
             { key: "xai", url: "https://api.x.ai/v1/models", apiKey: state.settings.xaiApiKey },
@@ -15747,7 +15823,7 @@ ${pageText}
           ];
           for (const p of compatList) {
             const extraInit = p.key === "opencode" ? getOpencodeSessionFetchInit() : {};
-            if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null, extraInit);
+            if (p.apiKey || p.noAuthOk) await fetchOpenAICompat(p.url, p.apiKey, p.key, null, extraInit);
           }
           if (window.dbUtils && typeof window.dbUtils.saveSetting === "function") {
             window.dbUtils.saveSetting("fetchedModels", state.settings.fetchedModels).catch(() => {

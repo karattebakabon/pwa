@@ -835,7 +835,12 @@ window.dbUtils = dbUtils;
 
                 async function fetchOpenAICompat(url, apiKey, provider, filter, extraInit = {}) {
                     try {
-                        const r = await fetch(url, { headers: { 'Authorization': `Bearer ${apiKey}`, ...(extraInit.headers || {}) } });
+                        // APIキーが無い場合は Authorization を付けない（OpenRouter の
+                        // モデル一覧のように認証不要の公開エンドポイントがあるため。
+                        // "Bearer undefined" を送ると 401 になる）
+                        const headers = { ...(extraInit.headers || {}) };
+                        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+                        const r = await fetch(url, { headers });
                         if (!r.ok) { results.push(`${provider}: HTTP ${r.status}${await httpErrorDetail(r)}`); return; }
                         const d = await r.json();
                         const models = (d.data || []).map(m => m.id).filter(id => id && (!filter || filter(id)));
@@ -885,6 +890,10 @@ window.dbUtils = dbUtils;
 
                 // OpenAI-compatible providers
                 const compatList = [
+                    // OpenRouter の /v1/models は認証不要の公開エンドポイント（CORS許可済み）。
+                    // ここを外していたため「全プロバイダーの最新モデルを取得」で OpenRouter だけ
+                    // 取得できず、モデルIDを手入力するしかなかった。キー未設定でも取得する。
+                    { key: 'openrouter', url: 'https://openrouter.ai/api/v1/models', apiKey: state.settings.openrouterApiKey, noAuthOk: true },
                     { key: 'groq',     url: 'https://api.groq.com/openai/v1/models',    apiKey: state.settings.groqApiKey },
                     { key: 'deepseek', url: 'https://api.deepseek.com/v1/models',        apiKey: state.settings.deepseekApiKey },
                     { key: 'xai',      url: 'https://api.x.ai/v1/models',               apiKey: state.settings.xaiApiKey },
@@ -894,7 +903,9 @@ window.dbUtils = dbUtils;
                 for (const p of compatList) {
                     // OpenCode のときだけ x-opencode-session を付ける（キャッシュ固定のため）
                     const extraInit = p.key === 'opencode' ? getOpencodeSessionFetchInit() : {};
-                    if (p.apiKey) await fetchOpenAICompat(p.url, p.apiKey, p.key, null, extraInit);
+                    // noAuthOk のプロバイダー（OpenRouter）はAPIキー未設定でも取得する
+                    // （モデル一覧は公開情報のため。キーが無いと一覧すら見えず不便だった）
+                    if (p.apiKey || p.noAuthOk) await fetchOpenAICompat(p.url, p.apiKey, p.key, null, extraInit);
                 }
 
                 // Persist fetchedModels and refresh dropdown

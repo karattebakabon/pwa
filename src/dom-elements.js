@@ -36,6 +36,7 @@ try {
         openrouterApiKeyContainer: document.getElementById('openrouter-api-key-container'),
         openrouterModelInput: document.getElementById('openrouter-model-input'),
         openrouterModelInputContainer: document.getElementById('openrouter-model-input-container'),
+        openrouterModelList: document.getElementById('openrouter-model-list'),
         bedrockAccessKeyInput: document.getElementById('bedrock-access-key'),
         bedrockSecretKeyInput: document.getElementById('bedrock-secret-key'),
         bedrockRegionSelect: document.getElementById('bedrock-region'),

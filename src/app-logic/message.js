@@ -1,12 +1,13 @@
 // appLogic 機能モジュール: message（Phase 3 で app-logic.js から分割）。挙動は不変。
 import { apiUtils } from '../api.js';
-import { GEMINI_API_BASE_URL, INITIAL_RETRY_DELAY } from '../constants.js';
+import { GEMINI_API_BASE_URL, INITIAL_RETRY_DELAY, OPENROUTER_FREE_TIMEOUT_SECONDS } from '../constants.js';
 import { dbUtils } from '../db.js';
 import { elements } from '../dom-elements.js';
 import { state } from '../state.js';
 import { uiUtils } from '../ui.js';
 import { htmlUtils } from '../utils/html.js';
 import { interruptibleSleep, sleep } from '../utils/format.js';
+import { isRetryableStatus, maxRateLimitWaitMs, parseRetryAfter } from '../utils/retry.js';
 import { isRetiredModelError, resolveRetiredModel } from './retired-model.js';
 import { getGeminiSafetySettings } from '../utils/safety.js';
 
@@ -124,7 +125,8 @@ export const messageMethods = {
                 if (error.name === 'AbortError') {
                     throw error;
                 }
-                if (error.status && error.status >= 400 && error.status < 500) {
+                // レート制限（429）や一時的なサーバ障害はリトライする
+                if (!isRetryableStatus(error.status)) {
                     console.error(`リトライ不可の校正エラー (ステータス: ${error.status})。`, error);
                     throw error;
                 }
@@ -1411,10 +1413,22 @@ export const messageMethods = {
             state.abortController = new AbortController();
         }
         
-        // タイムアウト設定の取得
-        const timeoutEnabled = state.settings.enableApiTimeout || false;
-        const timeoutMs = timeoutEnabled ? (state.settings.apiTimeoutSeconds || 90) * 1000 : null;
-        
+        // タイムアウト設定の取得。
+        // OpenRouter の無料モデル（:free）は提供元が1社しかないため、混雑すると上流が
+        // 応答を返さないまま接続が保持される（＝「応答生成中...」のまま固まる）。
+        // 設定がOFFでも無料モデルのときだけは安全弁として既定タイムアウトをかける。
+        const isOpenRouterFreeModel =
+            (state.settings.apiProvider || 'gemini') === 'openrouter' &&
+            String(state.settings.modelName || '').trim().endsWith(':free');
+        const timeoutEnabled = state.settings.enableApiTimeout || isOpenRouterFreeModel;
+        const timeoutSeconds =
+            state.settings.apiTimeoutSeconds ||
+            (isOpenRouterFreeModel ? OPENROUTER_FREE_TIMEOUT_SECONDS : 90);
+        const timeoutMs = timeoutEnabled ? timeoutSeconds * 1000 : null;
+
+        // 429（レート制限）の Retry-After を尊重するための待機時間(ms)。次の試行で使う。
+        let retryAfterDelayMs = null;
+
         if (timeoutEnabled) {
             console.log(`[Timeout] APIタイムアウト有効: ${timeoutMs}ms`);
         } else {
@@ -1436,7 +1450,11 @@ export const messageMethods = {
 
                 if (attempt > 0) {
                     let delay;
-                    if (state.settings.useFixedRetryDelay) {
+                    if (retryAfterDelayMs !== null) {
+                        // サーバーが「この秒数だけ待ってから再試行して」と指定してきた（429）
+                        delay = retryAfterDelayMs;
+                        retryAfterDelayMs = null;
+                    } else if (state.settings.useFixedRetryDelay) {
                         delay = state.settings.fixedRetryDelaySeconds * 1000;
                     } else {
                         const exponentialDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
@@ -1596,8 +1614,13 @@ export const messageMethods = {
 
                 lastError = error;
                 
-                // タイムアウトによるAbortの判定
-                if (error.name === 'AbortError' && attemptController.signal.aborted && !state.abortController?.signal.aborted) {
+                // タイムアウトによるAbortの判定。
+                // api.js は AbortError を「リクエストがキャンセルされました。」に包み直す
+                // 経路があるため、エラー名ではなく abort シグナルの状態で判定する
+                // （名前で判定していたため、タイムアウトがただの通信エラー扱いになっていた）。
+                const abortedByTimeout =
+                    attemptController.signal.aborted && !state.abortController?.signal.aborted;
+                if (abortedByTimeout) {
                     // attemptControllerによるAbort = タイムアウト
                     const timeoutError = new Error(`APIタイムアウト: ${timeoutMs}ms以内にレスポンスが返りませんでした。`);
                     timeoutError.isTimeout = true;
@@ -1612,8 +1635,25 @@ export const messageMethods = {
                     throw error;
                 }
                 
-                // 4xx系エラーは即座に終了
-                if (error.status && error.status >= 400 && error.status < 500) {
+                // 429（レート制限）はリトライする。OpenRouter の無料モデル（:free）は
+                // 分あたり／日あたりの上限に当たりやすく、Retry-After 付きで返ってくる。
+                // 待ち時間が長すぎるとき（日次上限など）は無駄に待たず、理由を添えて終了する。
+                if (error.status === 429) {
+                    const waitMs = parseRetryAfter(error.retryAfter);
+                    if (waitMs !== null && waitMs > maxRateLimitWaitMs(state.settings.maxBackoffDelaySeconds)) {
+                        const rateLimitError = new Error(
+                            `APIのレート制限に達しました (HTTP 429)。約${Math.ceil(waitMs / 1000)}秒待つと再試行できます。` +
+                                '無料モデル（:free）はリクエスト数に上限があるため、時間をおくか有料版をお使いください。'
+                        );
+                        rateLimitError.status = 429;
+                        rateLimitError.data = error.data;
+                        console.error('レート制限の待ち時間が長いためリトライを中止します。', error);
+                        throw rateLimitError;
+                    }
+                    if (waitMs !== null) retryAfterDelayMs = Math.max(waitMs, 1000);
+                    console.warn('レート制限 (HTTP 429) のため再試行します。', error);
+                } else if (!isRetryableStatus(error.status)) {
+                    // 4xx系（レート制限以外）は即座に終了
                     console.error(`リトライ不可のエラー (ステータス: ${error.status})。リトライを中止します。`, error);
                     throw error;
                 }

@@ -690,6 +690,9 @@ export const apiUtils = {
                 const error = new Error(errorMsg);
                 error.status = response.status;
                 error.data = errorData;
+                // 429 の Retry-After（秒数 or HTTP-date）を保持（呼び出し側で尊重する）
+                const retryAfterHeader = response.headers.get('Retry-After');
+                if (retryAfterHeader) error.retryAfter = retryAfterHeader;
                 throw error;
             }
             return response;
@@ -1071,6 +1074,10 @@ export const apiUtils = {
                 const error = new Error(errorMsg);
                 error.status = response.status;
                 error.data = errorData;
+                // 429 の Retry-After（秒数 or HTTP-date）を保持する。呼び出し側の
+                // リトライが「いつ再試行してよいか」を尊重できるようにするため。
+                const retryAfterHeader = response.headers.get('Retry-After');
+                if (retryAfterHeader) error.retryAfter = retryAfterHeader;
                 throw error;
             }
 
@@ -1673,6 +1680,9 @@ export const apiUtils = {
             const err = await response.json().catch(() => ({}));
             const e = new Error(`${providerName} APIエラー: ${err.error?.message || response.statusText}`);
             e.status = response.status;
+            // 429 の Retry-After を保持（呼び出し側のリトライで尊重する）
+            const retryAfterHeader = response.headers.get('Retry-After');
+            if (retryAfterHeader) e.retryAfter = retryAfterHeader;
             throw e;
         }
         const data = await response.json();

@@ -400,6 +400,22 @@ export const lifecycleMethods = {
                 // これをしないと OpenRouter のときだけ★が効かない。
                 this.applyFavoriteModelsGroup(orSelect);
             }
+            // 「全プロバイダーの最新モデルを取得」で取得した一覧を入力候補(datalist)に入れる。
+            // OpenRouter はテキスト入力方式（セレクトは使わない）なので、候補として出すのが
+            // 一番邪魔にならない。443件あってもブラウザ側の絞り込みが効く。
+            if (elements.openrouterModelList) {
+                const fetched = (state.settings && state.settings.fetchedModels
+                    ? state.settings.fetchedModels.openrouter
+                    : null) || [];
+                const list = elements.openrouterModelList;
+                list.textContent = '';
+                fetched.forEach((id) => {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    list.appendChild(opt);
+                });
+            }
+
             // テキストボックスに現在のモデル名を設定
             if (elements.openrouterModelInput) {
                 const currentModel = state.settings.modelName || DEFAULT_OPENROUTER_MODEL;
@@ -610,7 +626,12 @@ export const lifecycleMethods = {
                     (legacyVersion && legacyVersion !== currentVersion);
 
                 if (shouldShowNotice) {
-                    const newFeatures = VERSION_HISTORY[currentVersion];
+                    // APP_VERSION は '1.25.60' のフル表記、VERSION_HISTORY のキーは
+                    // '1.60'（メジャー.通し番号）なので、両方引けるようにしておく。
+                    // これが無いと更新通知に「主な更新内容」が出ない（キー不一致で空振り）。
+                    const historyKey = '1.' + String(currentVersion).split('.').pop();
+                    const newFeatures =
+                        VERSION_HISTORY[currentVersion] || VERSION_HISTORY[historyKey];
                     let message = `アプリがバージョン ${currentVersion} にアップデートされました。`;
 
                     if (newFeatures && newFeatures.length > 0) {

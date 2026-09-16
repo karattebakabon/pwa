@@ -23,6 +23,15 @@ export const HISTORY_SEARCH_DEBOUNCE_MS = 200;
 export const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 export const ZAI_API_BASE_URL = 'https://api.z.ai/api/paas/v4/chat/completions';
 export const OPENROUTER_API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+// OpenRouter の無料モデル（ID が ":free" で終わるもの）は提供元が1社しかないため、
+// 混雑すると上流が応答を返さず接続が保持されたままになる（＝画面が「応答生成中...」
+// で固まる）。設定の「APIタイムアウト」がOFFでも、無料モデルのときだけは安全弁として
+// この秒数で打ち切り、リトライに回す。
+export const OPENROUTER_FREE_TIMEOUT_SECONDS = 180;
+
+// OpenRouter のモデル一覧（/v1/models）。認証不要の公開エンドポイントで CORS も許可済み。
+export const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 export const GROQ_API_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const DEEPSEEK_API_BASE_URL = 'https://api.deepseek.com/chat/completions';
 export const XAI_API_BASE_URL = 'https://api.x.ai/v1/chat/completions';
@@ -46,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.56';
+export const APP_VERSION = '1.25.60';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
@@ -265,6 +274,11 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.60': [
+        'OpenRouter のモデル一覧を「全プロバイダーの最新モデルを取得」で取得できるようにしました。これまでは OpenRouter だけ対象外で、モデルIDを手で入力するしかありませんでした（例: google/gemma-4-31b-it）。APIキーを入れていなくても一覧だけは取得します。',
+        'OpenRouter の無料モデル（ID が :free で終わるもの）が「応答生成中...」のまま止まってしまう問題に対策しました。無料モデルは提供元が1社しかないため、混雑すると上流が応答を返さず接続が保持され続けます。無料モデルのときだけ APIタイムアウト（既定180秒）を自動でかけ、429（レート制限）は Retry-After の指定どおり待ってから再試行するようにしました。',
+        '※ 待ち時間が長すぎるレート制限（1日の上限など）は、何秒待てばよいかを添えてエラーにします。無料モデルは時間をおくか、有料版（:free なし）をお使いください。',
+    ],
     1.53: [
         'Gemini のセンシティブフィルター設定を1箇所にまとめました。これまで同じ内容が6箇所（チャット送信・思考プロセスの翻訳・要約/メモリ学習・タイトル生成・校正）にコピーされていて、片方だけ直すと食い違う状態でした。内部の整理なので、フィルターの効き方はこれまでと変わりません。',
         '設定内容もこれまでどおり、調整できる4カテゴリ（ハラスメント・ヘイト・性的表現・危険な行為）すべてを BLOCK_NONE にしています。つまり以前から実質フィルターオフのままです。',
