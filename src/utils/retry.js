@@ -42,6 +42,19 @@ export function parseRetryAfter(value, now = Date.now()) {
 }
 
 /**
+ * 待ち時間の表示用ラベル。ミリ秒を秒／分／時間に丸める
+ * （「約99999秒」では実感がわかないため。日次上限の案内などで使う）。
+ * @param {number} ms
+ * @returns {string}
+ */
+export function formatWaitDuration(ms) {
+    if (!(ms > 0)) return 'すぐに';
+    if (ms >= 3_600_000) return `約${Math.round(ms / 3_600_000)}時間`;
+    if (ms >= 60_000) return `約${Math.round(ms / 60_000)}分`;
+    return `約${Math.ceil(ms / 1000)}秒`;
+}
+
+/**
  * 429 のときに「待ちすぎ」と判断すべき上限（ms）。
  * 日次上限のように待っても無駄なケースで延々と待たないための安全弁。
  * 既定は バックオフ上限の5倍（例: 60秒設定なら5分）。

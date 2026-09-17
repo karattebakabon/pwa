@@ -1890,7 +1890,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.60";
+  var APP_VERSION = "1.25.61";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
@@ -2071,6 +2071,10 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.61": [
+      "OpenRouter の無料モデル（:free）で「APIタイムアウト: 90000ms以内にレスポンスが返りませんでした。」と出ていた不具合を修正しました。無料モデル用に180秒のタイムアウトを用意していたのですが、設定の既定値（90秒）が常に入っているため負けていました。無料モデルのときは、設定が90秒でも最低180秒まで待つようにしています。",
+      "無料モデルで応答が返らないまま再試行を使い切ったときは、原因と次の手（時間をおく／有料版／openrouter/free）を案内するメッセージを出すようにしました。無料版は提供元が1社しかないため、混雑時は数分待っても応答が返らないことがあります。"
+    ],
     "1.60": [
       "OpenRouter のモデル一覧を「全プロバイダーの最新モデルを取得」で取得できるようにしました。これまでは OpenRouter だけ対象外で、モデルIDを手で入力するしかありませんでした（例: google/gemma-4-31b-it）。APIキーを入れていなくても一覧だけは取得します。",
       "OpenRouter の無料モデル（ID が :free で終わるもの）が「応答生成中...」のまま止まってしまう問題に対策しました。無料モデルは提供元が1社しかないため、混雑すると上流が応答を返さず接続が保持され続けます。無料モデルのときだけ APIタイムアウト（既定180秒）を自動でかけ、429（レート制限）は Retry-After の指定どおり待ってから再試行するようにしました。",
@@ -10423,6 +10427,13 @@ ${knowledgeText}`;
     return Math.max(0, t - now);
   }
   __name(parseRetryAfter, "parseRetryAfter");
+  function formatWaitDuration(ms) {
+    if (!(ms > 0)) return "すぐに";
+    if (ms >= 36e5) return `約${Math.round(ms / 36e5)}時間`;
+    if (ms >= 6e4) return `約${Math.round(ms / 6e4)}分`;
+    return `約${Math.ceil(ms / 1e3)}秒`;
+  }
+  __name(formatWaitDuration, "formatWaitDuration");
   function maxRateLimitWaitMs(maxBackoffDelaySeconds) {
     const base = Number(maxBackoffDelaySeconds) > 0 ? Number(maxBackoffDelaySeconds) : 60;
     return Math.max(base, 60) * 1e3 * 5;
@@ -11634,7 +11645,8 @@ ${knowledgeText}`;
       }
       const isOpenRouterFreeModel = (state.settings.apiProvider || "gemini") === "openrouter" && String(state.settings.modelName || "").trim().endsWith(":free");
       const timeoutEnabled = state.settings.enableApiTimeout || isOpenRouterFreeModel;
-      const timeoutSeconds = state.settings.apiTimeoutSeconds || (isOpenRouterFreeModel ? OPENROUTER_FREE_TIMEOUT_SECONDS : 90);
+      const configuredTimeoutSeconds = Number(state.settings.apiTimeoutSeconds) || 90;
+      const timeoutSeconds = isOpenRouterFreeModel ? Math.max(configuredTimeoutSeconds, OPENROUTER_FREE_TIMEOUT_SECONDS) : configuredTimeoutSeconds;
       const timeoutMs = timeoutEnabled ? timeoutSeconds * 1e3 : null;
       let retryAfterDelayMs = null;
       if (timeoutEnabled) {
@@ -11777,7 +11789,9 @@ ${knowledgeText}`;
           lastError = error;
           const abortedByTimeout = attemptController.signal.aborted && !state.abortController?.signal.aborted;
           if (abortedByTimeout) {
-            const timeoutError = new Error(`APIタイムアウト: ${timeoutMs}ms以内にレスポンスが返りませんでした。`);
+            const timeoutError = new Error(
+              `APIタイムアウト: ${Math.round(timeoutMs / 1e3)}秒以内にレスポンスが返りませんでした。`
+            );
             timeoutError.isTimeout = true;
             lastError = timeoutError;
             console.warn(`[Timeout] タイムアウト検出。エラーとして扱い、リトライ機構に委ねます。`);
@@ -11790,7 +11804,7 @@ ${knowledgeText}`;
             const waitMs = parseRetryAfter(error.retryAfter);
             if (waitMs !== null && waitMs > maxRateLimitWaitMs(state.settings.maxBackoffDelaySeconds)) {
               const rateLimitError = new Error(
-                `APIのレート制限に達しました (HTTP 429)。約${Math.ceil(waitMs / 1e3)}秒待つと再試行できます。無料モデル（:free）はリクエスト数に上限があるため、時間をおくか有料版をお使いください。`
+                `APIのレート制限に達しました (HTTP 429)。${formatWaitDuration(waitMs)}待つと再試行できます。無料モデル（:free）はリクエスト数に上限があるため、時間をおくか有料版をお使いください。`
               );
               rateLimitError.status = 429;
               rateLimitError.data = error.data;
@@ -11812,6 +11826,13 @@ ${knowledgeText}`;
         }
       }
       console.error("最大リトライ回数に達しました。最終的なエラーをスローします。");
+      if (isOpenRouterFreeModel && lastError && lastError.isTimeout) {
+        const freeTimeoutError = new Error(
+          "無料モデル（:free）が応答しませんでした。無料版は提供元が1社だけのため、混雑していると数分待っても応答が返らないことがあります。時間をおいて再試行するか、有料版（:free を外したモデル）をお試しください。"
+        );
+        freeTimeoutError.isTimeout = true;
+        throw freeTimeoutError;
+      }
       throw lastError;
     }
   };

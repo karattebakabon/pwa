@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.60';
+export const APP_VERSION = '1.25.61';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
@@ -274,6 +274,10 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.61': [
+        'OpenRouter の無料モデル（:free）で「APIタイムアウト: 90000ms以内にレスポンスが返りませんでした。」と出ていた不具合を修正しました。無料モデル用に180秒のタイムアウトを用意していたのですが、設定の既定値（90秒）が常に入っているため負けていました。無料モデルのときは、設定が90秒でも最低180秒まで待つようにしています。',
+        '無料モデルで応答が返らないまま再試行を使い切ったときは、原因と次の手（時間をおく／有料版／openrouter/free）を案内するメッセージを出すようにしました。無料版は提供元が1社しかないため、混雑時は数分待っても応答が返らないことがあります。',
+    ],
     '1.60': [
         'OpenRouter のモデル一覧を「全プロバイダーの最新モデルを取得」で取得できるようにしました。これまでは OpenRouter だけ対象外で、モデルIDを手で入力するしかありませんでした（例: google/gemma-4-31b-it）。APIキーを入れていなくても一覧だけは取得します。',
         'OpenRouter の無料モデル（ID が :free で終わるもの）が「応答生成中...」のまま止まってしまう問題に対策しました。無料モデルは提供元が1社しかないため、混雑すると上流が応答を返さず接続が保持され続けます。無料モデルのときだけ APIタイムアウト（既定180秒）を自動でかけ、429（レート制限）は Retry-After の指定どおり待ってから再試行するようにしました。',

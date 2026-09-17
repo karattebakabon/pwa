@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isRetryableStatus, maxRateLimitWaitMs, parseRetryAfter } from '../src/utils/retry.js';
+import { isRetryableStatus, maxRateLimitWaitMs, parseRetryAfter, formatWaitDuration } from '../src/utils/retry.js';
 
 const read = (relPath) => readFileSync(resolve(process.cwd(), relPath), 'utf8');
 
@@ -64,6 +64,21 @@ describe('maxRateLimitWaitMs', () => {
     });
 });
 
+describe('formatWaitDuration', () => {
+    it('秒・分・時間で読みやすく丸める', () => {
+        expect(formatWaitDuration(7_000)).toBe('約7秒');
+        expect(formatWaitDuration(45_000)).toBe('約45秒');
+        expect(formatWaitDuration(90_000)).toBe('約2分');
+        expect(formatWaitDuration(600_000)).toBe('約10分');
+        expect(formatWaitDuration(99_999_000)).toBe('約28時間');
+    });
+
+    it('0以下は「すぐに」', () => {
+        expect(formatWaitDuration(0)).toBe('すぐに');
+        expect(formatWaitDuration(-1)).toBe('すぐに');
+    });
+});
+
 describe('配線（回帰防止）', () => {
     const appJs = read('src/app.js');
     const apiJs = read('src/api.js');
@@ -94,6 +109,12 @@ describe('配線（回帰防止）', () => {
         expect(messageJs).toContain('OPENROUTER_FREE_TIMEOUT_SECONDS');
         expect(messageJs).toContain("endsWith(':free')");
         expect(messageJs).toContain('state.settings.enableApiTimeout || isOpenRouterFreeModel');
+    });
+
+    it('無料モデルのタイムアウトは設定値より優先される（既定90秒に負けない）', () => {
+        // state.js の既定 apiTimeoutSeconds:90 が常に truthy なので、
+        // 「設定値 || 専用値」だと専用値が死ぬ（実害: 90000ms でタイムアウトした）
+        expect(messageJs).toContain('Math.max(configuredTimeoutSeconds, OPENROUTER_FREE_TIMEOUT_SECONDS)');
     });
 
     it('429 はリトライ経路に入る（Retry-After を待機時間に使う）', () => {

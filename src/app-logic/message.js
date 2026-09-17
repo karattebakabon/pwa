@@ -7,7 +7,7 @@ import { state } from '../state.js';
 import { uiUtils } from '../ui.js';
 import { htmlUtils } from '../utils/html.js';
 import { interruptibleSleep, sleep } from '../utils/format.js';
-import { isRetryableStatus, maxRateLimitWaitMs, parseRetryAfter } from '../utils/retry.js';
+import { isRetryableStatus, maxRateLimitWaitMs, parseRetryAfter, formatWaitDuration } from '../utils/retry.js';
 import { isRetiredModelError, resolveRetiredModel } from './retired-model.js';
 import { getGeminiSafetySettings } from '../utils/safety.js';
 
@@ -1421,9 +1421,14 @@ export const messageMethods = {
             (state.settings.apiProvider || 'gemini') === 'openrouter' &&
             String(state.settings.modelName || '').trim().endsWith(':free');
         const timeoutEnabled = state.settings.enableApiTimeout || isOpenRouterFreeModel;
-        const timeoutSeconds =
-            state.settings.apiTimeoutSeconds ||
-            (isOpenRouterFreeModel ? OPENROUTER_FREE_TIMEOUT_SECONDS : 90);
+        // state.js の既定値（apiTimeoutSeconds: 90）が常に入っているため、
+        // 「設定値 || モデル別既定」と書くとモデル別の値が負ける（実害: :free の
+        // 180秒が効かず90秒で「APIタイムアウト: 90000ms…」になっていた）。
+        // 無料モデルだけは設定値が短くても最低 OPENROUTER_FREE_TIMEOUT_SECONDS まで粘る。
+        const configuredTimeoutSeconds = Number(state.settings.apiTimeoutSeconds) || 90;
+        const timeoutSeconds = isOpenRouterFreeModel
+            ? Math.max(configuredTimeoutSeconds, OPENROUTER_FREE_TIMEOUT_SECONDS)
+            : configuredTimeoutSeconds;
         const timeoutMs = timeoutEnabled ? timeoutSeconds * 1000 : null;
 
         // 429（レート制限）の Retry-After を尊重するための待機時間(ms)。次の試行で使う。
@@ -1622,7 +1627,9 @@ export const messageMethods = {
                     attemptController.signal.aborted && !state.abortController?.signal.aborted;
                 if (abortedByTimeout) {
                     // attemptControllerによるAbort = タイムアウト
-                    const timeoutError = new Error(`APIタイムアウト: ${timeoutMs}ms以内にレスポンスが返りませんでした。`);
+                    const timeoutError = new Error(
+                        `APIタイムアウト: ${Math.round(timeoutMs / 1000)}秒以内にレスポンスが返りませんでした。`
+                    );
                     timeoutError.isTimeout = true;
                     lastError = timeoutError;
                     console.warn(`[Timeout] タイムアウト検出。エラーとして扱い、リトライ機構に委ねます。`);
@@ -1642,7 +1649,7 @@ export const messageMethods = {
                     const waitMs = parseRetryAfter(error.retryAfter);
                     if (waitMs !== null && waitMs > maxRateLimitWaitMs(state.settings.maxBackoffDelaySeconds)) {
                         const rateLimitError = new Error(
-                            `APIのレート制限に達しました (HTTP 429)。約${Math.ceil(waitMs / 1000)}秒待つと再試行できます。` +
+                            `APIのレート制限に達しました (HTTP 429)。${formatWaitDuration(waitMs)}待つと再試行できます。` +
                                 '無料モデル（:free）はリクエスト数に上限があるため、時間をおくか有料版をお使いください。'
                         );
                         rateLimitError.status = 429;
@@ -1668,6 +1675,17 @@ export const messageMethods = {
         }
 
         console.error("最大リトライ回数に達しました。最終的なエラーをスローします。");
+        // 無料モデルのタイムアウトで全リトライを使い切った場合は、原因と次の手を案内する
+        // （「180000ms以内に…」だけでは何をすればよいか分からないため）。
+        if (isOpenRouterFreeModel && lastError && lastError.isTimeout) {
+            const freeTimeoutError = new Error(
+                '無料モデル（:free）が応答しませんでした。無料版は提供元が1社だけのため、' +
+                    '混雑していると数分待っても応答が返らないことがあります。' +
+                    '時間をおいて再試行するか、有料版（:free を外したモデル）をお試しください。'
+            );
+            freeTimeoutError.isTimeout = true;
+            throw freeTimeoutError;
+        }
         throw lastError;
     }
 };
