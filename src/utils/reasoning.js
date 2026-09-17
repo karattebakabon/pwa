@@ -32,3 +32,38 @@ export function extractReasoningText(message) {
 
     return '';
 }
+
+// 「reasoning（思考の要求）を送らないほうがよい」モデルの判定。
+//
+// 非推論モデルに reasoning を付けると、本文を返さず思考だけでトークンを使い切り
+// content: null（＝本文が空）になる。実測（2026-09・v1.25.60時点の調査）:
+//   google/gemma-4-31b-it:free … reasoning あり→ content null / なし→ 正常応答
+// 同種のモデルが見つかったらこのパターンに足す。
+const NON_REASONING_MODEL_PATTERN =
+    /(^|[/\-_])(gemma|llama|phi|command-r|granite|olmo|lfm|dots|solar)/i;
+
+/**
+ * このモデルに reasoning パラメータを送ってよいか。
+ * @param {string} model モデルID（'google/gemma-4-31b-it:free' など）
+ * @returns {boolean} true=送ってよい / false=送らないほうがよい
+ */
+export function shouldRequestReasoning(model) {
+    if (!model) return true;
+    return !NON_REASONING_MODEL_PATTERN.test(String(model));
+}
+
+/**
+ * 「本文が無く、思考だけが返った」OpenAI互換レスポンスかどうか。
+ * こうなった場合は reasoning を外して投げ直す価値がある（本文がゼロのまま
+ * トークンだけ消費されるため）。
+ * @param {object} data OpenAI互換のレスポンスJSON
+ * @returns {boolean}
+ */
+export function isReasoningOnlyCompletion(data) {
+    const message = data?.choices?.[0]?.message;
+    if (!message || typeof message !== 'object') return false;
+    const hasToolCalls = Array.isArray(message.tool_calls) && message.tool_calls.length > 0;
+    const hasContent = typeof message.content === 'string' && message.content.trim().length > 0;
+    const hasReasoning = !!(message.reasoning || message.reasoning_content);
+    return hasReasoning && !hasContent && !hasToolCalls;
+}

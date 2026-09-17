@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.61';
+export const APP_VERSION = '1.25.62';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
@@ -274,6 +274,10 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.62': [
+        'OpenRouter の無料モデル（google/gemma-4-31b-it:free など）で本文が返らずタイムアウトしていた原因を修正しました。「思考プロセスを含める（Include Thoughts）」がONだと reasoning（思考の要求）を送りますが、Gemma のような非推論モデルはこれを付けると本文を返さず思考だけでトークンを使い切ってしまうためです（実測: reasoning あり→本文なし／なし→正常応答）。',
+        '非推論モデル（Gemma・Llama・Phi など）には reasoning を送らないようにしました。また、万一「思考だけで本文が空」が返ってきた場合は、reasoning を外して自動で1回だけ再送し、本文を取れるようにしています。',
+    ],
     '1.61': [
         'OpenRouter の無料モデル（:free）で「APIタイムアウト: 90000ms以内にレスポンスが返りませんでした。」と出ていた不具合を修正しました。無料モデル用に180秒のタイムアウトを用意していたのですが、設定の既定値（90秒）が常に入っているため負けていました。無料モデルのときは、設定が90秒でも最低180秒まで待つようにしています。',
         '無料モデルで応答が返らないまま再試行を使い切ったときは、原因と次の手（時間をおく／有料版／openrouter/free）を案内するメッセージを出すようにしました。無料版は提供元が1社しかないため、混雑時は数分待っても応答が返らないことがあります。',

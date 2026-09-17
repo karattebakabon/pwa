@@ -3,7 +3,7 @@ import { DEEPSEEK_API_BASE_URL, DEFAULT_BEDROCK_MODEL, DEFAULT_BEDROCK_REGION, D
 import { appLogic } from './app-logic.js';
 import { elements } from './dom-elements.js';
 import { interruptibleSleep } from './utils/format.js';
-import { extractReasoningText } from './utils/reasoning.js';
+import { extractReasoningText, isReasoningOnlyCompletion, shouldRequestReasoning } from './utils/reasoning.js';
 import { isImageGenerationModel } from './utils/model-select.js';
 import { getGeminiSafetySettings } from './utils/safety.js';
 import { state } from './state.js';
@@ -922,10 +922,16 @@ export const apiUtils = {
         // OpenRouter は reasoning パラメータで明示しないとモデルが推論を返さないことがある。
         // 他のOpenAI互換プロバイダーは未知のキーで 400 を返す場合があるため送らない。
         // 予算は Gemini/Anthropic と同じ Thinking Budget を流用する（未設定なら有効化のみ）。
-        if (cfg.supportsReasoning && state.settings.includeThoughts) {
+        if (cfg.supportsReasoning && state.settings.includeThoughts && shouldRequestReasoning(model)) {
             requestBody.reasoning = state.settings.thinkingBudget > 0
                 ? { enabled: true, max_tokens: state.settings.thinkingBudget }
                 : { enabled: true };
+        } else if (cfg.supportsReasoning && state.settings.includeThoughts) {
+            // 非推論モデル（Gemma 等）に reasoning を付けると、本文を返さず思考だけで
+            // トークンを使い切って content: null になる。送らないのが正解。
+            console.log(
+                `[${cfg.label}] ${model} は reasoning を送らないモデルのため、思考の要求をスキップします。`
+            );
         }
 
         // Function Callingの処理
@@ -1027,7 +1033,8 @@ export const apiUtils = {
             const timestamp = new Date().toLocaleTimeString();
             console.log(`[API_DEBUG ${timestamp}] Sending fetch request to ${cfg.label} API...`);
 
-            const response = await fetch(cfg.baseUrl, {
+            // 同じ内容を投げ直せるように init を使い回す（reasoning 無しの再送で使用）
+            const requestInit = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1036,7 +1043,8 @@ export const apiUtils = {
                 },
                 body: JSON.stringify(requestBody),
                 signal
-            });
+            };
+            const response = await fetch(cfg.baseUrl, requestInit);
 
             const receivedTimestamp = new Date().toLocaleTimeString();
             console.log(`[API_DEBUG ${receivedTimestamp}] Received response from ${cfg.label} API. Status: ${response.status}`);
@@ -1082,7 +1090,28 @@ export const apiUtils = {
             }
 
             // レスポンスを取得してGemini形式に変換
-            const openAIResponse = await response.json();
+            let openAIResponse = await response.json();
+
+            // 保険: reasoning を付けたのに「思考だけ返って本文が空」だった場合は、
+            // reasoning を外して1度だけ投げ直す。未知の非推論モデルでも本文が取れる
+            // ようにするため（本文ゼロのままトークンだけ消費されるのを避ける）。
+            if (requestBody.reasoning && isReasoningOnlyCompletion(openAIResponse)) {
+                console.warn(
+                    `[${cfg.label}] 本文が空で思考のみが返りました。reasoning を外して再送します。`
+                );
+                delete requestBody.reasoning;
+                const retryResponse = await fetch(cfg.baseUrl, {
+                    ...requestInit,
+                    body: JSON.stringify(requestBody)
+                });
+                if (retryResponse.ok) {
+                    openAIResponse = await retryResponse.json();
+                } else {
+                    console.error(
+                        `[${cfg.label}] reasoning なしの再送も失敗しました (HTTP ${retryResponse.status})`
+                    );
+                }
+            }
 
             // デバッグ用：APIからのレスポンス構造を確認
             if (openAIResponse.choices && openAIResponse.choices[0]) {

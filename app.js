@@ -1890,7 +1890,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.61";
+  var APP_VERSION = "1.25.62";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
@@ -2071,6 +2071,10 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.62": [
+      "OpenRouter の無料モデル（google/gemma-4-31b-it:free など）で本文が返らずタイムアウトしていた原因を修正しました。「思考プロセスを含める（Include Thoughts）」がONだと reasoning（思考の要求）を送りますが、Gemma のような非推論モデルはこれを付けると本文を返さず思考だけでトークンを使い切ってしまうためです（実測: reasoning あり→本文なし／なし→正常応答）。",
+      "非推論モデル（Gemma・Llama・Phi など）には reasoning を送らないようにしました。また、万一「思考だけで本文が空」が返ってきた場合は、reasoning を外して自動で1回だけ再送し、本文を取れるようにしています。"
+    ],
     "1.61": [
       "OpenRouter の無料モデル（:free）で「APIタイムアウト: 90000ms以内にレスポンスが返りませんでした。」と出ていた不具合を修正しました。無料モデル用に180秒のタイムアウトを用意していたのですが、設定の既定値（90秒）が常に入っているため負けていました。無料モデルのときは、設定が90秒でも最低180秒まで待つようにしています。",
       "無料モデルで応答が返らないまま再試行を使い切ったときは、原因と次の手（時間をおく／有料版／openrouter/free）を案内するメッセージを出すようにしました。無料版は提供元が1社しかないため、混雑時は数分待っても応答が返らないことがあります。"
@@ -8960,6 +8964,21 @@ AI: ${firstModelContent}`;
     return "";
   }
   __name(extractReasoningText, "extractReasoningText");
+  var NON_REASONING_MODEL_PATTERN = /(^|[/\-_])(gemma|llama|phi|command-r|granite|olmo|lfm|dots|solar)/i;
+  function shouldRequestReasoning(model) {
+    if (!model) return true;
+    return !NON_REASONING_MODEL_PATTERN.test(String(model));
+  }
+  __name(shouldRequestReasoning, "shouldRequestReasoning");
+  function isReasoningOnlyCompletion(data) {
+    const message = data?.choices?.[0]?.message;
+    if (!message || typeof message !== "object") return false;
+    const hasToolCalls = Array.isArray(message.tool_calls) && message.tool_calls.length > 0;
+    const hasContent = typeof message.content === "string" && message.content.trim().length > 0;
+    const hasReasoning = !!(message.reasoning || message.reasoning_content);
+    return hasReasoning && !hasContent && !hasToolCalls;
+  }
+  __name(isReasoningOnlyCompletion, "isReasoningOnlyCompletion");
 
   // src/api.js
   function extractSystemText(systemInstruction) {
@@ -9680,8 +9699,12 @@ AI: ${firstModelContent}`;
           requestBody.top_p = generationConfig.topP;
         }
       }
-      if (cfg.supportsReasoning && state.settings.includeThoughts) {
+      if (cfg.supportsReasoning && state.settings.includeThoughts && shouldRequestReasoning(model)) {
         requestBody.reasoning = state.settings.thinkingBudget > 0 ? { enabled: true, max_tokens: state.settings.thinkingBudget } : { enabled: true };
+      } else if (cfg.supportsReasoning && state.settings.includeThoughts) {
+        console.log(
+          `[${cfg.label}] ${model} は reasoning を送らないモデルのため、思考の要求をスキップします。`
+        );
       }
       if (state.settings.geminiEnableFunctionCalling && window.functionDeclarations) {
         const openAITools = [];
@@ -9765,7 +9788,7 @@ AI: ${firstModelContent}`;
       try {
         const timestamp = (/* @__PURE__ */ new Date()).toLocaleTimeString();
         console.log(`[API_DEBUG ${timestamp}] Sending fetch request to ${cfg.label} API...`);
-        const response = await fetch(cfg.baseUrl, {
+        const requestInit = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -9774,7 +9797,8 @@ AI: ${firstModelContent}`;
           },
           body: JSON.stringify(requestBody),
           signal
-        });
+        };
+        const response = await fetch(cfg.baseUrl, requestInit);
         const receivedTimestamp = (/* @__PURE__ */ new Date()).toLocaleTimeString();
         console.log(`[API_DEBUG ${receivedTimestamp}] Received response from ${cfg.label} API. Status: ${response.status}`);
         if (!response.ok) {
@@ -9810,7 +9834,24 @@ AI: ${firstModelContent}`;
           if (retryAfterHeader) error.retryAfter = retryAfterHeader;
           throw error;
         }
-        const openAIResponse = await response.json();
+        let openAIResponse = await response.json();
+        if (requestBody.reasoning && isReasoningOnlyCompletion(openAIResponse)) {
+          console.warn(
+            `[${cfg.label}] 本文が空で思考のみが返りました。reasoning を外して再送します。`
+          );
+          delete requestBody.reasoning;
+          const retryResponse = await fetch(cfg.baseUrl, {
+            ...requestInit,
+            body: JSON.stringify(requestBody)
+          });
+          if (retryResponse.ok) {
+            openAIResponse = await retryResponse.json();
+          } else {
+            console.error(
+              `[${cfg.label}] reasoning なしの再送も失敗しました (HTTP ${retryResponse.status})`
+            );
+          }
+        }
         if (openAIResponse.choices && openAIResponse.choices[0]) {
           const choice = openAIResponse.choices[0];
           console.log(`[${cfg.label} Debug] APIレスポンス情報:`);
