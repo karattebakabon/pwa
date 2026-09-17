@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.62';
+export const APP_VERSION = '1.25.63';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
@@ -274,6 +274,10 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.63': [
+        'OpenRouter の無料モデル（:free）で、Function Calling（ツール）をONにしていると返信が来なくなる問題を修正しました。無料エンドポイントは共有で余力が少なく、ツール定義をまとめて送ると応答が返らず固まるためです（実測: google/gemma-4-31b-it:free はツール付きで180秒以上無応答・ツール無しなら数秒で正常応答。PC・スマホの両方で再現）。',
+        '無料モデルにはツール定義を送らないようにしました（有料モデルにはこれまでどおり送ります）。無料モデルで画像生成などのツールを使いたい場合は、有料モデル（:free なし）に切り替えてください。',
+    ],
     '1.62': [
         'OpenRouter の無料モデル（google/gemma-4-31b-it:free など）で本文が返らずタイムアウトしていた原因を修正しました。「思考プロセスを含める（Include Thoughts）」がONだと reasoning（思考の要求）を送りますが、Gemma のような非推論モデルはこれを付けると本文を返さず思考だけでトークンを使い切ってしまうためです（実測: reasoning あり→本文なし／なし→正常応答）。',
         '非推論モデル（Gemma・Llama・Phi など）には reasoning を送らないようにしました。また、万一「思考だけで本文が空」が返ってきた場合は、reasoning を外して自動で1回だけ再送し、本文を取れるようにしています。',

@@ -36,6 +36,23 @@ export function isImageGenerationModel(model) {
 }
 
 /**
+ * 無料枠モデル（ID が ':free' で終わるもの）かどうか。
+ *
+ * OpenRouter の無料バリアントは共有エンドポイントで余力が少なく、重いペイロード
+ * （特に Function Calling のツール定義をまとめて送るケース）だと応答が返らず
+ * 固まることがある。実測 2026-09:
+ *   google/gemma-4-31b-it:free … tools 付き（18個）で180秒以上無応答 /
+ *                                tools 無しなら数秒で正常応答（PC・スマホ両方で再現）
+ *
+ * @param {string} model モデルID
+ * @returns {boolean}
+ */
+export function isFreeVariantModel(model) {
+    if (typeof model !== 'string' || !model) return false;
+    return /:free$/i.test(model.trim());
+}
+
+/**
  * 「追加モデル」グループを選択肢の末尾へ移動する。
  *
  * index.html では #user-defined-models-group が静的に置かれているため、

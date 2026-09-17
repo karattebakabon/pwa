@@ -4,7 +4,7 @@ import { appLogic } from './app-logic.js';
 import { elements } from './dom-elements.js';
 import { interruptibleSleep } from './utils/format.js';
 import { extractReasoningText, isReasoningOnlyCompletion, shouldRequestReasoning } from './utils/reasoning.js';
-import { isImageGenerationModel } from './utils/model-select.js';
+import { isFreeVariantModel, isImageGenerationModel } from './utils/model-select.js';
 import { getGeminiSafetySettings } from './utils/safety.js';
 import { state } from './state.js';
 import { uiUtils } from './ui.js';
@@ -934,8 +934,17 @@ export const apiUtils = {
             );
         }
 
-        // Function Callingの処理
-        if (state.settings.geminiEnableFunctionCalling && window.functionDeclarations) {
+        // Function Callingの処理。
+        // ただし無料モデル（:free）にはツール定義を送らない。無料エンドポイントは共有で
+        // 余力が少なく、ツール定義をまとめて送ると応答が返らず固まることがあるため
+        // （実測: google/gemma-4-31b-it:free は tools 付きで180秒無応答・tools 無しで
+        // 数秒で正常応答。PC・スマホ両方で再現）。ツールを使いたいときは有料モデルを。
+        if (state.settings.geminiEnableFunctionCalling && isFreeVariantModel(model)) {
+            console.log(
+                `[${cfg.label}] ${model} は無料モデルのため、Function Callingツールの送信をスキップします。`
+            );
+        }
+        if (state.settings.geminiEnableFunctionCalling && window.functionDeclarations && !isFreeVariantModel(model)) {
             // Gemini形式のfunction declarationsをOpenAI形式に変換
             const openAITools = [];
 
