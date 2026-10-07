@@ -19,6 +19,7 @@ import { isRetiredModelError, resolveRetiredModel } from './retired-model.js';
 import { calcMessageCost, getUsageRange, summarizeUsage } from '../utils/usage.js';
 import { htmlUtils } from '../utils/html.js';
 import { getGeminiSafetySettings } from '../utils/safety.js';
+import { sanitizeGeminiGenerationConfig } from '../utils/gemini-params.js';
 
 // OpenAI互換プロバイダーの APIキー・エンドポイントを返す。
 function getOpenAICompatConfig(provider) {
@@ -88,7 +89,7 @@ async function runAuxiliaryCompletion({
         body = {
             contents: [{ role: 'user', parts: [{ text: userContent }] }],
             systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: { temperature, maxOutputTokens: maxTokens },
+            generationConfig: sanitizeGeminiGenerationConfig(model, { temperature, maxOutputTokens: maxTokens }),
             safetySettings: getGeminiSafetySettings(),
         };
         parse = (d) => d.candidates?.[0]?.content?.parts?.[0]?.text;

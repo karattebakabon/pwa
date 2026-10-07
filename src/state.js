@@ -44,6 +44,7 @@ export const state = {
         topK: null,
         topP: null,
         thinkingBudget: null,
+        geminiThinkingLevel: '',
         includeThoughts: false,
         enableThoughtTranslation: true, // 思考プロセスの翻訳を有効にするか
         thoughtTranslationModel: 'gemini-2.5-flash-lite',

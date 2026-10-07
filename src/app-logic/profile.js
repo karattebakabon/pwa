@@ -323,6 +323,7 @@ export const profileMethods = {
             'opencodeApiKey',
             'opencodeProxyUrl',
             'modelName',
+            'geminiThinkingLevel',
             'dummyUser',
             'dummyModel',
             'additionalModels',

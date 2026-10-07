@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.63';
+export const APP_VERSION = '1.25.68';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
@@ -274,6 +274,10 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.68': [
+        'Gemini の thinking_level（minimal / low / medium / high）を設定できるようにしました。対応段階はモデルに合わせて表示し、選択値はプロファイルに保存します。',
+        'Gemini へ送る温度・Top P・Top K・Thinking Budgetをモデル別に制御し、今後のモデルや gemini-flash-latest には未対応の旧パラメータを送りません。翻訳・校正・要約/メモリ・画像プロンプト改善・画像チェックにも同じ制御を適用しました。',
+    ],
     '1.63': [
         'OpenRouter の無料モデル（:free）で、Function Calling（ツール）をONにしていると返信が来なくなる問題を修正しました。無料エンドポイントは共有で余力が少なく、ツール定義をまとめて送ると応答が返らず固まるためです（実測: google/gemma-4-31b-it:free はツール付きで180秒以上無応答・ツール無しなら数秒で正常応答。PC・スマホの両方で再現）。',
         '無料モデルにはツール定義を送らないようにしました（有料モデルにはこれまでどおり送ります）。無料モデルで画像生成などのツールを使いたい場合は、有料モデル（:free なし）に切り替えてください。',

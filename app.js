@@ -1634,6 +1634,8 @@ ${relationship_context}`;
       topKInput: document.getElementById("top-k"),
       topPInput: document.getElementById("top-p"),
       thinkingBudgetInput: document.getElementById("thinking-budget"),
+      geminiThinkingLevelSelect: document.getElementById("gemini-thinking-level"),
+      geminiThinkingLevelNote: document.getElementById("gemini-thinking-level-note"),
       includeThoughtsToggle: document.getElementById("include-thoughts-toggle"),
       thoughtTranslationOptionsDiv: document.getElementById("thought-translation-options"),
       enableThoughtTranslationCheckbox: document.getElementById("enable-thought-translation"),
@@ -1890,7 +1892,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.63";
+  var APP_VERSION = "1.25.68";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
@@ -2071,6 +2073,10 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.68": [
+      "Gemini の thinking_level（minimal / low / medium / high）を設定できるようにしました。対応段階はモデルに合わせて表示し、選択値はプロファイルに保存します。",
+      "Gemini へ送る温度・Top P・Top K・Thinking Budgetをモデル別に制御し、今後のモデルや gemini-flash-latest には未対応の旧パラメータを送りません。翻訳・校正・要約/メモリ・画像プロンプト改善・画像チェックにも同じ制御を適用しました。"
+    ],
     "1.63": [
       "OpenRouter の無料モデル（:free）で、Function Calling（ツール）をONにしていると返信が来なくなる問題を修正しました。無料エンドポイントは共有で余力が少なく、ツール定義をまとめて送ると応答が返らず固まるためです（実測: google/gemma-4-31b-it:free はツール付きで180秒以上無応答・ツール無しなら数秒で正常応答。PC・スマホの両方で再現）。",
       "無料モデルにはツール定義を送らないようにしました（有料モデルにはこれまでどおり送ります）。無料モデルで画像生成などのツールを使いたい場合は、有料モデル（:free なし）に切り替えてください。"
@@ -2299,6 +2305,7 @@ ${relationship_context}`;
       topK: null,
       topP: null,
       thinkingBudget: null,
+      geminiThinkingLevel: "",
       includeThoughts: false,
       enableThoughtTranslation: true,
       // 思考プロセスの翻訳を有効にするか
@@ -2449,6 +2456,7 @@ Reason: [NGの場合の理由]`,
     "presencePenalty",
     "frequencyPenalty",
     "thinkingBudget",
+    "geminiThinkingLevel",
     "includeThoughts",
     "enableThoughtTranslation",
     "thoughtTranslationModel",
@@ -2652,6 +2660,227 @@ Reason: [NGの場合の理由]`,
       console.log("[DebugLogger] ログがクリアされました。");
     }
   };
+
+  // src/utils/pricing.js
+  var MODEL_PRICING = {
+    // Claude 5系 / 4系 (claude-opus-5, claude-opus-4-x, claude-sonnet-4-x, claude-haiku-4-x)
+    "claude-opus-5": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
+    "claude-opus-4-8": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
+    "claude-opus-4-7": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
+    "claude-opus-4-6": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
+    "claude-opus-4-5": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
+    "claude-opus-4-1": { in: 15, out: 75, cw5m: 18.75, cw1h: 30, cr: 1.5 },
+    "claude-opus-4": { in: 15, out: 75, cw5m: 18.75, cw1h: 30, cr: 1.5 },
+    "claude-sonnet-4": { in: 3, out: 15, cw5m: 3.75, cw1h: 6, cr: 0.3 },
+    "claude-haiku-4": { in: 1, out: 5, cw5m: 1.25, cw1h: 2, cr: 0.1 },
+    // Claude 3系 (旧モデル)
+    "claude-opus-3": { in: 15, out: 75, cw5m: 18.75, cw1h: 30, cr: 1.5 },
+    "claude-opus": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
+    "claude-sonnet": { in: 3, out: 15, cw5m: 3.75, cw1h: 6, cr: 0.3 },
+    "claude-haiku": { in: 0.8, out: 4, cw5m: 1, cw1h: 1.6, cr: 0.08 },
+    // DeepSeek（in=キャッシュミス入力, cr=キャッシュヒット入力）。価格は「通常（オフピーク）」基準。
+    // peakMul があるモデルは、ピーク時間帯のメッセージのみ料金を peakMul 倍にする。
+    // V4系は 2026-08-16 の改定後の価格。
+    "deepseek-reasoner": { in: 0.55, out: 2.19, cw5m: 0.55, cw1h: 0.55, cr: 0.14 },
+    "deepseek-chat": { in: 0.27, out: 1.1, cw5m: 0.27, cw1h: 0.27, cr: 0.07 },
+    "deepseek-v4-pro": { in: 0.66, out: 1.98, cw5m: 0.66, cw1h: 0.66, cr: 0.022, peakMul: 2 },
+    "deepseek-v4-flash": { in: 0.22, out: 0.66, cw5m: 0.22, cw1h: 0.22, cr: 7e-3, peakMul: 2 },
+    "deepseek-": { in: 0.27, out: 1.1, cw5m: 0.27, cw1h: 0.27, cr: 0.07 },
+    // 以下は cw5m/cw1h を持たない。キャッシュ書き込みに別料金が無く、通常入力と同額のため
+    // （calcMessageCost が in にフォールバックする）。
+    // longCtx があるモデルは、プロンプトが threshold 以上のとき単価がそちらへ切り替わる。
+    // xAI Grok — https://docs.x.ai/developers/pricing
+    "grok-4-6": { in: 2, out: 6, cr: 0.5, longCtx: { threshold: 2e5, in: 4, out: 12, cr: 1 } },
+    "grok-4-5": { in: 2, out: 6, cr: 0.3, longCtx: { threshold: 2e5, in: 4, out: 12, cr: 0.6 } },
+    "grok-4-3": { in: 1.25, out: 2.5, cr: 0.2, longCtx: { threshold: 2e5, in: 2.5, out: 5, cr: 0.4 } },
+    // OpenAI — https://developers.openai.com/api/docs/pricing
+    // 前方一致のため、より具体的なキーを先に置くこと（'gpt-5-mini' は 'gpt-5' より前）。
+    "gpt-5-6-sol": { in: 4, out: 20, cr: 0.4 },
+    // 2026-08-21 値下げ（少なくとも11/21まで）
+    "gpt-5-6-terra": { in: 2, out: 12, cr: 0.2 },
+    "gpt-5-6-luna": { in: 0.2, out: 1.2, cr: 0.02 },
+    "gpt-5-5-pro": { in: 30, out: 180, cr: 30 },
+    // キャッシュ割引の提供なし
+    "gpt-5-5": { in: 5, out: 30, cr: 0.5 },
+    "gpt-5-4-mini": { in: 0.75, out: 4.5, cr: 0.075 },
+    "gpt-5-4-nano": { in: 0.2, out: 1.25, cr: 0.02 },
+    "gpt-5-4-pro": { in: 30, out: 180, cr: 30 },
+    // 同上
+    "gpt-5-4": { in: 2.5, out: 15, cr: 0.25 },
+    "gpt-5-2": { in: 1.75, out: 14, cr: 0.175 },
+    "gpt-5-1": { in: 1.25, out: 10, cr: 0.125 },
+    "gpt-5-mini": { in: 0.25, out: 2, cr: 0.025 },
+    "gpt-5": { in: 1.25, out: 10, cr: 0.125 },
+    "gpt-4-1-mini": { in: 0.4, out: 1.6, cr: 0.1 },
+    "gpt-4-1-nano": { in: 0.1, out: 0.4, cr: 0.025 },
+    "gpt-4-1": { in: 2, out: 8, cr: 0.5 },
+    "o4-mini": { in: 1.1, out: 4.4, cr: 0.275 },
+    "o3-mini": { in: 1.1, out: 4.4, cr: 0.55 },
+    "o3-pro": { in: 20, out: 80, cr: 20 },
+    // 同上
+    "o3": { in: 2, out: 8, cr: 0.5 },
+    // Google Gemini — https://ai.google.dev/gemini-api/docs/pricing
+    // '-flash-lite' は '-flash' より前に置くこと（前方一致のため）。
+    // 3.7 / 3.6 Flash は 2026-12-31 まで半額。ここには割引終了後の通常単価を置き、
+    // 割引期間中は MODEL_PRICING_GEMINI_FLASH_PROMO を優先して引く。
+    "gemini-3-7-flash": { in: 1.5, out: 7.5, cr: 0.15 },
+    "gemini-3-6-flash": { in: 1.5, out: 7.5, cr: 0.15 },
+    "gemini-3-5-flash-lite": { in: 0.3, out: 2.5, cr: 0.03 },
+    "gemini-3-5-flash": { in: 1.5, out: 9, cr: 0.15 },
+    // 3.1 Pro も 200k 超で単価が上がる（入力2倍・出力1.5倍・キャッシュ2倍）
+    "gemini-3-1-pro": { in: 2, out: 12, cr: 0.2, longCtx: { threshold: 2e5, in: 4, out: 18, cr: 0.4 } },
+    "gemini-3-1-flash-lite": { in: 0.25, out: 1.5, cr: 0.025 },
+    // 3 Flash（プレビュー）。'gemini-3-7-flash' 等とは前方一致で衝突しない
+    "gemini-3-flash": { in: 0.5, out: 3, cr: 0.05 },
+    // 2.5 Pro は 200k 超で入力2倍・出力1.5倍と倍率が異なるため、上位段の単価をそのまま持つ
+    "gemini-2-5-pro": { in: 1.25, out: 10, cr: 0.125, longCtx: { threshold: 2e5, in: 2.5, out: 15, cr: 0.25 } },
+    "gemini-2-5-flash-lite": { in: 0.1, out: 0.4, cr: 0.01 },
+    "gemini-2-5-flash": { in: 0.3, out: 2.5, cr: 0.03 }
+  };
+  var DEEPSEEK_V4_PRICE_CHANGE_AT = Date.UTC(2026, 7, 16, 16, 0, 0);
+  var MODEL_PRICING_BEFORE_V4_CHANGE = {
+    "deepseek-v4-pro": { in: 0.435, out: 0.87, cw5m: 0.435, cw1h: 0.435, cr: 3625e-6, peakMul: 2 },
+    "deepseek-v4-flash": { in: 0.14, out: 0.28, cw5m: 0.14, cw1h: 0.14, cr: 28e-4, peakMul: 2 }
+  };
+  var GPT_56_SOL_PRICE_CUT_AT = Date.UTC(2026, 7, 21, 0, 0, 0);
+  var MODEL_PRICING_BEFORE_SOL_CUT = {
+    "gpt-5-6-sol": { in: 5, out: 30, cr: 0.5 }
+  };
+  var GEMINI_FLASH_PROMO_END_AT = Date.UTC(2027, 0, 1, 0, 0, 0);
+  var MODEL_PRICING_GEMINI_FLASH_PROMO = {
+    "gemini-3-7-flash": { in: 0.75, out: 3.75, cr: 0.075 },
+    "gemini-3-6-flash": { in: 0.75, out: 3.75, cr: 0.075 }
+  };
+  function normalizeModelName(modelName) {
+    if (typeof modelName !== "string") return "";
+    return modelName.toLowerCase().trim().replace(/^[^/]+\//, "").replace(/:.*$/, "").replace(/(\d)\.(\d)/g, "$1-$2");
+  }
+  __name(normalizeModelName, "normalizeModelName");
+  function getPricing(modelName, timestamp) {
+    if (!modelName) return null;
+    const m = normalizeModelName(modelName);
+    if (!m) return null;
+    if (!timestamp || timestamp < DEEPSEEK_V4_PRICE_CHANGE_AT) {
+      for (const [key, price] of Object.entries(MODEL_PRICING_BEFORE_V4_CHANGE)) {
+        if (m.startsWith(key)) return price;
+      }
+    }
+    if (!timestamp || timestamp < GPT_56_SOL_PRICE_CUT_AT) {
+      for (const [key, price] of Object.entries(MODEL_PRICING_BEFORE_SOL_CUT)) {
+        if (m.startsWith(key)) return price;
+      }
+    }
+    if (!timestamp || timestamp < GEMINI_FLASH_PROMO_END_AT) {
+      for (const [key, price] of Object.entries(MODEL_PRICING_GEMINI_FLASH_PROMO)) {
+        if (m.startsWith(key)) return price;
+      }
+    }
+    for (const [key, price] of Object.entries(MODEL_PRICING)) {
+      if (m.startsWith(key)) return price;
+    }
+    return null;
+  }
+  __name(getPricing, "getPricing");
+  var DEEPSEEK_WEEKEND_OFFPEAK_AT = Date.UTC(2026, 7, 22, 16, 0, 0);
+  var BEIJING_OFFSET_MS = 8 * 60 * 60 * 1e3;
+  function isDeepSeekPeak(timestamp) {
+    if (!timestamp) return false;
+    if (timestamp >= DEEPSEEK_WEEKEND_OFFPEAK_AT) {
+      const beijingDay = new Date(timestamp + BEIJING_OFFSET_MS).getUTCDay();
+      if (beijingDay === 0 || beijingDay === 6) return false;
+    }
+    const h = new Date(timestamp).getUTCHours();
+    return h >= 1 && h < 4 || h >= 6 && h < 10;
+  }
+  __name(isDeepSeekPeak, "isDeepSeekPeak");
+
+  // src/utils/gemini-params.js
+  var SAMPLING_PARAMS_PREFIXES = [
+    "gemini-2-5",
+    "gemini-3-flash",
+    "gemini-3-pro",
+    "gemini-3-1-",
+    "gemini-3-5-"
+  ];
+  var THINKING_BUDGET_PREFIXES = [
+    ...SAMPLING_PARAMS_PREFIXES,
+    "gemini-3-6-",
+    "gemini-3-7-",
+    "gemini-3-8-"
+  ];
+  var isGemini = /* @__PURE__ */ __name((model) => model.startsWith("gemini"), "isGemini");
+  function geminiAcceptsSamplingParams(model) {
+    const normalized = normalizeModelName(model);
+    if (!isGemini(normalized)) return true;
+    return SAMPLING_PARAMS_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  }
+  __name(geminiAcceptsSamplingParams, "geminiAcceptsSamplingParams");
+  function geminiAcceptsThinkingBudget(model) {
+    const normalized = normalizeModelName(model);
+    if (!isGemini(normalized)) return true;
+    return THINKING_BUDGET_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  }
+  __name(geminiAcceptsThinkingBudget, "geminiAcceptsThinkingBudget");
+  function sanitizeGeminiGenerationConfig(model, generationConfig) {
+    const config = { ...generationConfig || {} };
+    if (!geminiAcceptsSamplingParams(model)) {
+      delete config.temperature;
+      delete config.topP;
+      delete config.topK;
+    }
+    if (config.thinkingConfig && !geminiAcceptsThinkingBudget(model)) {
+      const thinkingConfig = { ...config.thinkingConfig };
+      delete thinkingConfig.thinkingBudget;
+      if (Object.keys(thinkingConfig).length > 0) {
+        config.thinkingConfig = thinkingConfig;
+      } else {
+        delete config.thinkingConfig;
+      }
+    }
+    return config;
+  }
+  __name(sanitizeGeminiGenerationConfig, "sanitizeGeminiGenerationConfig");
+
+  // src/utils/gemini-thinking.js
+  var GEMINI_THINKING_LEVELS = ["minimal", "low", "medium", "high"];
+  function getGeminiThinkingLevels(model) {
+    const normalized = normalizeModelName(model);
+    if (!normalized.startsWith("gemini")) return null;
+    if (/-image|embedding|-live|-tts|robotics/.test(normalized)) return null;
+    if (normalized.startsWith("gemini-3-6-flash") || normalized.startsWith("gemini-3-5-flash") || normalized.startsWith("gemini-3-flash") || normalized.startsWith("gemini-3-1-flash-lite")) {
+      return GEMINI_THINKING_LEVELS;
+    }
+    if (normalized.startsWith("gemini-3-pro-preview")) return ["low", "high"];
+    const version = /^gemini-(\d+)(?:-(\d+))?/.exec(normalized);
+    if (version) {
+      const major = Number(version[1]);
+      if (major >= 3) return ["low", "medium", "high"];
+      if (major === 2 && version[2] === "5") return ["low", "medium", "high"];
+      return null;
+    }
+    if (normalized.endsWith("-latest")) return ["low", "medium", "high"];
+    return null;
+  }
+  __name(getGeminiThinkingLevels, "getGeminiThinkingLevels");
+  function buildGeminiThinkingConfig({ model, thinkingLevel, thinkingBudget, includeThoughts }) {
+    const config = {};
+    const level = typeof thinkingLevel === "string" ? thinkingLevel.trim().toLowerCase() : "";
+    const allowedLevels = getGeminiThinkingLevels(model);
+    if (level && allowedLevels?.includes(level)) {
+      config.thinkingLevel = level.toUpperCase();
+    } else if (Number.isFinite(thinkingBudget) && thinkingBudget > 0 && geminiAcceptsThinkingBudget(model)) {
+      config.thinkingBudget = thinkingBudget;
+    }
+    if (includeThoughts) config.includeThoughts = true;
+    return Object.keys(config).length > 0 ? config : null;
+  }
+  __name(buildGeminiThinkingConfig, "buildGeminiThinkingConfig");
+  function buildGeminiLightThinkingConfig(model) {
+    if (geminiAcceptsThinkingBudget(model)) return { thinkingBudget: 0 };
+    const levels = getGeminiThinkingLevels(model);
+    return levels?.length ? { thinkingLevel: levels[0].toUpperCase() } : null;
+  }
+  __name(buildGeminiLightThinkingConfig, "buildGeminiLightThinkingConfig");
 
   // src/utils/format.js
   var sleep = /* @__PURE__ */ __name((ms) => new Promise((resolve) => setTimeout(resolve, ms)), "sleep");
@@ -3896,6 +4125,9 @@ Reason: [NGの場合の理由]`,
       elements.topKInput.value = state.settings.topK === null ? "" : state.settings.topK;
       elements.topPInput.value = state.settings.topP === null ? "" : state.settings.topP;
       elements.thinkingBudgetInput.value = state.settings.thinkingBudget === null ? "" : state.settings.thinkingBudget;
+      if (elements.geminiThinkingLevelSelect) {
+        elements.geminiThinkingLevelSelect.value = state.settings.geminiThinkingLevel || "";
+      }
       elements.includeThoughtsToggle.checked = state.settings.includeThoughts;
       elements.enableThoughtTranslationCheckbox.checked = state.settings.enableThoughtTranslation;
       elements.thoughtTranslationModelSelect.value = state.settings.thoughtTranslationModel || "gemini-2.5-flash-lite";
@@ -4327,6 +4559,47 @@ Reason: [NGの場合の理由]`,
       const isImageModel = isImageGenerationModel(selectedModel);
       elements.modelWarningMessage.classList.toggle("hidden", !isImageModel);
       this.updateAnthropicEffortOptions();
+      this.updateGeminiThinkingLevelOptions();
+    },
+    // 選択中のGeminiモデルに応じて thinking_level の選択肢を絞り込む。
+    updateGeminiThinkingLevelOptions() {
+      const select = elements.geminiThinkingLevelSelect;
+      if (!select) return;
+      const model = elements.modelNameSelect && elements.modelNameSelect.value || state.settings.modelName || "";
+      const isGeminiModel = model.toLowerCase().startsWith("gemini");
+      const note = elements.geminiThinkingLevelNote;
+      if (!isGeminiModel) {
+        if (note) {
+          note.textContent = "";
+          note.classList.add("hidden");
+        }
+        return;
+      }
+      const levels = getGeminiThinkingLevels(model);
+      for (const option of select.options) {
+        const supported = option.value === "" || Boolean(levels?.includes(option.value));
+        option.hidden = !supported;
+        option.disabled = !supported;
+      }
+      if (select.value && (!levels || !levels.includes(select.value))) {
+        select.value = "";
+        if (state.settings.geminiThinkingLevel !== "") {
+          state.settings.geminiThinkingLevel = "";
+          if (state.activeProfile) {
+            state.activeProfile.settings = state.activeProfile.settings || {};
+            state.activeProfile.settings.geminiThinkingLevel = "";
+            dbUtils.updateProfile(state.activeProfile).catch(() => {
+            });
+          }
+        }
+      }
+      if (note) {
+        let message = "";
+        if (!levels) message = "※ このモデルは thinking_level 非対応です。";
+        else if (!levels.includes("minimal")) message = "※ minimal はこのモデルでは選べません。";
+        note.textContent = message;
+        note.classList.toggle("hidden", !message);
+      }
     },
     // 選択中のAnthropicモデルに応じて Effort の選択肢を絞り込み、注意書きを出す。
     updateAnthropicEffortOptions() {
@@ -4805,6 +5078,7 @@ Reason: [NGの場合の理由]`,
         "opencodeApiKey",
         "opencodeProxyUrl",
         "modelName",
+        "geminiThinkingLevel",
         "dummyUser",
         "dummyModel",
         "additionalModels",
@@ -5176,7 +5450,7 @@ Reason: [NGの場合の理由]`,
     }, "updateApiUsageUI"),
     // プロバイダー変更時のUI更新
     updateProviderUI(provider) {
-      const isGemini = provider === "gemini";
+      const isGemini2 = provider === "gemini";
       const isZai = provider === "zai";
       const isOpenRouter = provider === "openrouter";
       const isBedrock = provider === "bedrock";
@@ -5189,7 +5463,7 @@ Reason: [NGの場合の理由]`,
       const isSakana = provider === "sakana";
       const isOpencode = provider === "opencode";
       const containers = [
-        [elements.geminiApiKeyContainer, isGemini],
+        [elements.geminiApiKeyContainer, isGemini2],
         [elements.zaiApiKeyContainer, isZai],
         [elements.openrouterApiKeyContainer, isOpenRouter],
         [elements.bedrockApiKeyContainer, isBedrock],
@@ -6040,6 +6314,7 @@ Reason: [NGの場合の理由]`,
         topK: { element: elements.topKInput, event: "input" },
         topP: { element: elements.topPInput, event: "input" },
         thinkingBudget: { element: elements.thinkingBudgetInput, event: "input" },
+        geminiThinkingLevel: { element: elements.geminiThinkingLevelSelect, event: "change" },
         includeThoughts: { element: elements.includeThoughtsToggle, event: "change" },
         enableThoughtTranslation: {
           element: elements.enableThoughtTranslationCheckbox,
@@ -9449,16 +9724,11 @@ AI: ${firstModelContent}`;
         delete finalGenerationConfig.topK;
         delete finalGenerationConfig.topP;
         delete finalGenerationConfig.temperature;
-      } else {
-        if (state.settings.thinkingBudget > 0 || state.settings.includeThoughts) {
-          generationConfig.thinkingConfig = {};
-          if (state.settings.thinkingBudget > 0) generationConfig.thinkingConfig.thinkingBudget = state.settings.thinkingBudget;
-          if (state.settings.includeThoughts) generationConfig.thinkingConfig.includeThoughts = true;
-        }
       }
+      const sendGenerationConfig = isImageGenModel ? finalGenerationConfig : sanitizeGeminiGenerationConfig(model, finalGenerationConfig);
       const requestBody = {
         contents: messagesForApi,
-        ...Object.keys(finalGenerationConfig).length > 0 && { generationConfig: finalGenerationConfig },
+        ...Object.keys(sendGenerationConfig).length > 0 && { generationConfig: sendGenerationConfig },
         safetySettings: getGeminiSafetySettings()
       };
       if (isImageGenModel) {
@@ -9579,10 +9849,14 @@ AI: ${firstModelContent}`;
         }
         endpoint = `${GEMINI_API_BASE_URL}${modelToUse}:generateContent`;
         fetchHeaders = { "Content-Type": "application/json", "x-goog-api-key": apiKey };
+        const lightThinking = buildGeminiLightThinkingConfig(modelToUse);
         requestBody = {
           contents: [{ role: "user", parts: [{ text: textToTranslate }] }],
           systemInstruction: { parts: [{ text: translationSystemPrompt }] },
-          generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } },
+          generationConfig: sanitizeGeminiGenerationConfig(modelToUse, {
+            temperature: 0.1,
+            ...lightThinking && { thinkingConfig: lightThinking }
+          }),
           safetySettings: getGeminiSafetySettings()
         };
       }
@@ -10595,9 +10869,10 @@ ${knowledgeText}`;
       if (maxTokens !== null) generationConfig.maxOutputTokens = maxTokens;
       if (topK !== null) generationConfig.topK = topK;
       if (topP !== null) generationConfig.topP = topP;
+      const sendConfig = sanitizeGeminiGenerationConfig(proofreadingModelName, generationConfig);
       const requestBody = {
         contents: [{ role: "user", parts: [{ text: textToProofread }] }],
-        ...Object.keys(generationConfig).length > 0 && { generationConfig },
+        ...Object.keys(sendConfig).length > 0 && { generationConfig: sendConfig },
         ...systemInstruction && { systemInstruction },
         safetySettings: getGeminiSafetySettings()
       };
@@ -10959,10 +11234,14 @@ ${knowledgeText}`;
         if (state.settings.maxTokens !== null) generationConfig.maxOutputTokens = state.settings.maxTokens;
         if (state.settings.topK !== null) generationConfig.topK = state.settings.topK;
         if (state.settings.topP !== null) generationConfig.topP = state.settings.topP;
-        if ((state.settings.apiProvider || "gemini") === "gemini" && (state.settings.thinkingBudget > 0 || state.settings.includeThoughts)) {
-          generationConfig.thinkingConfig = {};
-          if (state.settings.thinkingBudget > 0) generationConfig.thinkingConfig.thinkingBudget = state.settings.thinkingBudget;
-          if (state.settings.includeThoughts) generationConfig.thinkingConfig.includeThoughts = true;
+        if ((state.settings.apiProvider || "gemini") === "gemini") {
+          const thinkingConfig = buildGeminiThinkingConfig({
+            model: state.settings.modelName,
+            thinkingLevel: state.settings.geminiThinkingLevel,
+            thinkingBudget: state.settings.thinkingBudget,
+            includeThoughts: state.settings.includeThoughts
+          });
+          if (thinkingConfig) generationConfig.thinkingConfig = thinkingConfig;
         }
         const summaryText = this._buildSummaryForPrompt();
         const staticText = state.currentSystemPrompt?.trim() || "";
@@ -11512,10 +11791,14 @@ ${knowledgeText}`;
           if (state.settings.maxTokens !== null) generationConfig.maxOutputTokens = state.settings.maxTokens;
           if (state.settings.topK !== null) generationConfig.topK = state.settings.topK;
           if (state.settings.topP !== null) generationConfig.topP = state.settings.topP;
-          if ((state.settings.apiProvider || "gemini") === "gemini" && (state.settings.thinkingBudget > 0 || state.settings.includeThoughts)) {
-            generationConfig.thinkingConfig = {};
-            if (state.settings.thinkingBudget > 0) generationConfig.thinkingConfig.thinkingBudget = state.settings.thinkingBudget;
-            if (state.settings.includeThoughts) generationConfig.thinkingConfig.includeThoughts = true;
+          if ((state.settings.apiProvider || "gemini") === "gemini") {
+            const thinkingConfig = buildGeminiThinkingConfig({
+              model: state.settings.modelName,
+              thinkingLevel: state.settings.geminiThinkingLevel,
+              thinkingBudget: state.settings.thinkingBudget,
+              includeThoughts: state.settings.includeThoughts
+            });
+            if (thinkingConfig) generationConfig.thinkingConfig = thinkingConfig;
           }
           const systemInstruction = state.currentSystemPrompt?.trim() ? { role: "system", parts: [{ text: state.currentSystemPrompt.trim() }] } : null;
           const newMessages = await this._internalHandleSend(historyForApi, generationConfig, systemInstruction);
@@ -13327,7 +13610,7 @@ ${error.message}`);
       const requestBody = {
         contents: [{ parts: [{ text: userPrompt }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: { temperature: 0.5 }
+        generationConfig: sanitizeGeminiGenerationConfig(model, { temperature: 0.5 })
       };
       const endpoint = `${GEMINI_API_BASE_URL}${model}:generateContent`;
       const response = await fetch(endpoint, {
@@ -13513,7 +13796,7 @@ ${msg}`);
             { inlineData: { mimeType: "image/png", data: imageBase64 } }
           ]
         }],
-        generationConfig: { temperature: 0.1 }
+        generationConfig: sanitizeGeminiGenerationConfig(qcModel, { temperature: 0.1 })
       };
       const endpoint = `${GEMINI_API_BASE_URL}${qcModel}:generateContent`;
       const response = await fetch(endpoint, {
@@ -13534,139 +13817,6 @@ ${msg}`);
       }
     }, "runQualityChecker")
   };
-
-  // src/utils/pricing.js
-  var MODEL_PRICING = {
-    // Claude 5系 / 4系 (claude-opus-5, claude-opus-4-x, claude-sonnet-4-x, claude-haiku-4-x)
-    "claude-opus-5": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
-    "claude-opus-4-8": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
-    "claude-opus-4-7": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
-    "claude-opus-4-6": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
-    "claude-opus-4-5": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
-    "claude-opus-4-1": { in: 15, out: 75, cw5m: 18.75, cw1h: 30, cr: 1.5 },
-    "claude-opus-4": { in: 15, out: 75, cw5m: 18.75, cw1h: 30, cr: 1.5 },
-    "claude-sonnet-4": { in: 3, out: 15, cw5m: 3.75, cw1h: 6, cr: 0.3 },
-    "claude-haiku-4": { in: 1, out: 5, cw5m: 1.25, cw1h: 2, cr: 0.1 },
-    // Claude 3系 (旧モデル)
-    "claude-opus-3": { in: 15, out: 75, cw5m: 18.75, cw1h: 30, cr: 1.5 },
-    "claude-opus": { in: 5, out: 25, cw5m: 6.25, cw1h: 10, cr: 0.5 },
-    "claude-sonnet": { in: 3, out: 15, cw5m: 3.75, cw1h: 6, cr: 0.3 },
-    "claude-haiku": { in: 0.8, out: 4, cw5m: 1, cw1h: 1.6, cr: 0.08 },
-    // DeepSeek（in=キャッシュミス入力, cr=キャッシュヒット入力）。価格は「通常（オフピーク）」基準。
-    // peakMul があるモデルは、ピーク時間帯のメッセージのみ料金を peakMul 倍にする。
-    // V4系は 2026-08-16 の改定後の価格。
-    "deepseek-reasoner": { in: 0.55, out: 2.19, cw5m: 0.55, cw1h: 0.55, cr: 0.14 },
-    "deepseek-chat": { in: 0.27, out: 1.1, cw5m: 0.27, cw1h: 0.27, cr: 0.07 },
-    "deepseek-v4-pro": { in: 0.66, out: 1.98, cw5m: 0.66, cw1h: 0.66, cr: 0.022, peakMul: 2 },
-    "deepseek-v4-flash": { in: 0.22, out: 0.66, cw5m: 0.22, cw1h: 0.22, cr: 7e-3, peakMul: 2 },
-    "deepseek-": { in: 0.27, out: 1.1, cw5m: 0.27, cw1h: 0.27, cr: 0.07 },
-    // 以下は cw5m/cw1h を持たない。キャッシュ書き込みに別料金が無く、通常入力と同額のため
-    // （calcMessageCost が in にフォールバックする）。
-    // longCtx があるモデルは、プロンプトが threshold 以上のとき単価がそちらへ切り替わる。
-    // xAI Grok — https://docs.x.ai/developers/pricing
-    "grok-4-6": { in: 2, out: 6, cr: 0.5, longCtx: { threshold: 2e5, in: 4, out: 12, cr: 1 } },
-    "grok-4-5": { in: 2, out: 6, cr: 0.3, longCtx: { threshold: 2e5, in: 4, out: 12, cr: 0.6 } },
-    "grok-4-3": { in: 1.25, out: 2.5, cr: 0.2, longCtx: { threshold: 2e5, in: 2.5, out: 5, cr: 0.4 } },
-    // OpenAI — https://developers.openai.com/api/docs/pricing
-    // 前方一致のため、より具体的なキーを先に置くこと（'gpt-5-mini' は 'gpt-5' より前）。
-    "gpt-5-6-sol": { in: 4, out: 20, cr: 0.4 },
-    // 2026-08-21 値下げ（少なくとも11/21まで）
-    "gpt-5-6-terra": { in: 2, out: 12, cr: 0.2 },
-    "gpt-5-6-luna": { in: 0.2, out: 1.2, cr: 0.02 },
-    "gpt-5-5-pro": { in: 30, out: 180, cr: 30 },
-    // キャッシュ割引の提供なし
-    "gpt-5-5": { in: 5, out: 30, cr: 0.5 },
-    "gpt-5-4-mini": { in: 0.75, out: 4.5, cr: 0.075 },
-    "gpt-5-4-nano": { in: 0.2, out: 1.25, cr: 0.02 },
-    "gpt-5-4-pro": { in: 30, out: 180, cr: 30 },
-    // 同上
-    "gpt-5-4": { in: 2.5, out: 15, cr: 0.25 },
-    "gpt-5-2": { in: 1.75, out: 14, cr: 0.175 },
-    "gpt-5-1": { in: 1.25, out: 10, cr: 0.125 },
-    "gpt-5-mini": { in: 0.25, out: 2, cr: 0.025 },
-    "gpt-5": { in: 1.25, out: 10, cr: 0.125 },
-    "gpt-4-1-mini": { in: 0.4, out: 1.6, cr: 0.1 },
-    "gpt-4-1-nano": { in: 0.1, out: 0.4, cr: 0.025 },
-    "gpt-4-1": { in: 2, out: 8, cr: 0.5 },
-    "o4-mini": { in: 1.1, out: 4.4, cr: 0.275 },
-    "o3-mini": { in: 1.1, out: 4.4, cr: 0.55 },
-    "o3-pro": { in: 20, out: 80, cr: 20 },
-    // 同上
-    "o3": { in: 2, out: 8, cr: 0.5 },
-    // Google Gemini — https://ai.google.dev/gemini-api/docs/pricing
-    // '-flash-lite' は '-flash' より前に置くこと（前方一致のため）。
-    // 3.7 / 3.6 Flash は 2026-12-31 まで半額。ここには割引終了後の通常単価を置き、
-    // 割引期間中は MODEL_PRICING_GEMINI_FLASH_PROMO を優先して引く。
-    "gemini-3-7-flash": { in: 1.5, out: 7.5, cr: 0.15 },
-    "gemini-3-6-flash": { in: 1.5, out: 7.5, cr: 0.15 },
-    "gemini-3-5-flash-lite": { in: 0.3, out: 2.5, cr: 0.03 },
-    "gemini-3-5-flash": { in: 1.5, out: 9, cr: 0.15 },
-    // 3.1 Pro も 200k 超で単価が上がる（入力2倍・出力1.5倍・キャッシュ2倍）
-    "gemini-3-1-pro": { in: 2, out: 12, cr: 0.2, longCtx: { threshold: 2e5, in: 4, out: 18, cr: 0.4 } },
-    "gemini-3-1-flash-lite": { in: 0.25, out: 1.5, cr: 0.025 },
-    // 3 Flash（プレビュー）。'gemini-3-7-flash' 等とは前方一致で衝突しない
-    "gemini-3-flash": { in: 0.5, out: 3, cr: 0.05 },
-    // 2.5 Pro は 200k 超で入力2倍・出力1.5倍と倍率が異なるため、上位段の単価をそのまま持つ
-    "gemini-2-5-pro": { in: 1.25, out: 10, cr: 0.125, longCtx: { threshold: 2e5, in: 2.5, out: 15, cr: 0.25 } },
-    "gemini-2-5-flash-lite": { in: 0.1, out: 0.4, cr: 0.01 },
-    "gemini-2-5-flash": { in: 0.3, out: 2.5, cr: 0.03 }
-  };
-  var DEEPSEEK_V4_PRICE_CHANGE_AT = Date.UTC(2026, 7, 16, 16, 0, 0);
-  var MODEL_PRICING_BEFORE_V4_CHANGE = {
-    "deepseek-v4-pro": { in: 0.435, out: 0.87, cw5m: 0.435, cw1h: 0.435, cr: 3625e-6, peakMul: 2 },
-    "deepseek-v4-flash": { in: 0.14, out: 0.28, cw5m: 0.14, cw1h: 0.14, cr: 28e-4, peakMul: 2 }
-  };
-  var GPT_56_SOL_PRICE_CUT_AT = Date.UTC(2026, 7, 21, 0, 0, 0);
-  var MODEL_PRICING_BEFORE_SOL_CUT = {
-    "gpt-5-6-sol": { in: 5, out: 30, cr: 0.5 }
-  };
-  var GEMINI_FLASH_PROMO_END_AT = Date.UTC(2027, 0, 1, 0, 0, 0);
-  var MODEL_PRICING_GEMINI_FLASH_PROMO = {
-    "gemini-3-7-flash": { in: 0.75, out: 3.75, cr: 0.075 },
-    "gemini-3-6-flash": { in: 0.75, out: 3.75, cr: 0.075 }
-  };
-  function normalizeModelName(modelName) {
-    if (typeof modelName !== "string") return "";
-    return modelName.toLowerCase().trim().replace(/^[^/]+\//, "").replace(/:.*$/, "").replace(/(\d)\.(\d)/g, "$1-$2");
-  }
-  __name(normalizeModelName, "normalizeModelName");
-  function getPricing(modelName, timestamp) {
-    if (!modelName) return null;
-    const m = normalizeModelName(modelName);
-    if (!m) return null;
-    if (!timestamp || timestamp < DEEPSEEK_V4_PRICE_CHANGE_AT) {
-      for (const [key, price] of Object.entries(MODEL_PRICING_BEFORE_V4_CHANGE)) {
-        if (m.startsWith(key)) return price;
-      }
-    }
-    if (!timestamp || timestamp < GPT_56_SOL_PRICE_CUT_AT) {
-      for (const [key, price] of Object.entries(MODEL_PRICING_BEFORE_SOL_CUT)) {
-        if (m.startsWith(key)) return price;
-      }
-    }
-    if (!timestamp || timestamp < GEMINI_FLASH_PROMO_END_AT) {
-      for (const [key, price] of Object.entries(MODEL_PRICING_GEMINI_FLASH_PROMO)) {
-        if (m.startsWith(key)) return price;
-      }
-    }
-    for (const [key, price] of Object.entries(MODEL_PRICING)) {
-      if (m.startsWith(key)) return price;
-    }
-    return null;
-  }
-  __name(getPricing, "getPricing");
-  var DEEPSEEK_WEEKEND_OFFPEAK_AT = Date.UTC(2026, 7, 22, 16, 0, 0);
-  var BEIJING_OFFSET_MS = 8 * 60 * 60 * 1e3;
-  function isDeepSeekPeak(timestamp) {
-    if (!timestamp) return false;
-    if (timestamp >= DEEPSEEK_WEEKEND_OFFPEAK_AT) {
-      const beijingDay = new Date(timestamp + BEIJING_OFFSET_MS).getUTCDay();
-      if (beijingDay === 0 || beijingDay === 6) return false;
-    }
-    const h = new Date(timestamp).getUTCHours();
-    return h >= 1 && h < 4 || h >= 6 && h < 10;
-  }
-  __name(isDeepSeekPeak, "isDeepSeekPeak");
 
   // src/utils/usage.js
   function getUsageRange(range, now) {
@@ -13813,7 +13963,7 @@ ${msg}`);
       body = {
         contents: [{ role: "user", parts: [{ text: userContent }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: { temperature, maxOutputTokens: maxTokens },
+        generationConfig: sanitizeGeminiGenerationConfig(model, { temperature, maxOutputTokens: maxTokens }),
         safetySettings: getGeminiSafetySettings()
       };
       parse = /* @__PURE__ */ __name((d) => d.candidates?.[0]?.content?.parts?.[0]?.text, "parse");

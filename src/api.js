@@ -5,6 +5,8 @@ import { elements } from './dom-elements.js';
 import { interruptibleSleep } from './utils/format.js';
 import { extractReasoningText, isReasoningOnlyCompletion, shouldRequestReasoning } from './utils/reasoning.js';
 import { isFreeVariantModel, isImageGenerationModel } from './utils/model-select.js';
+import { buildGeminiLightThinkingConfig } from './utils/gemini-thinking.js';
+import { sanitizeGeminiGenerationConfig } from './utils/gemini-params.js';
 import { getGeminiSafetySettings } from './utils/safety.js';
 import { state } from './state.js';
 import { uiUtils } from './ui.js';
@@ -607,17 +609,16 @@ export const apiUtils = {
             delete finalGenerationConfig.topP;
             delete finalGenerationConfig.temperature;
 
-        } else {
-            if ((state.settings.thinkingBudget > 0) || state.settings.includeThoughts) {
-                generationConfig.thinkingConfig = {};
-                if(state.settings.thinkingBudget > 0) generationConfig.thinkingConfig.thinkingBudget = state.settings.thinkingBudget;
-                if(state.settings.includeThoughts) generationConfig.thinkingConfig.includeThoughts = true;
-            }
         }
+
+        // 現行モデルで受理されると確認できない旧パラメータは、送信直前に除外する。
+        const sendGenerationConfig = isImageGenModel
+            ? finalGenerationConfig
+            : sanitizeGeminiGenerationConfig(model, finalGenerationConfig);
 
         const requestBody = {
             contents: messagesForApi,
-            ...(Object.keys(finalGenerationConfig).length > 0 && { generationConfig: finalGenerationConfig }),
+            ...(Object.keys(sendGenerationConfig).length > 0 && { generationConfig: sendGenerationConfig }),
             safetySettings : getGeminiSafetySettings()
         };
 
@@ -757,10 +758,14 @@ export const apiUtils = {
             }
             endpoint = `${GEMINI_API_BASE_URL}${modelToUse}:generateContent`;
             fetchHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+            const lightThinking = buildGeminiLightThinkingConfig(modelToUse);
             requestBody = {
                 contents: [{ role: 'user', parts: [{ text: textToTranslate }] }],
                 systemInstruction: { parts: [{ text: translationSystemPrompt }] },
-                generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } },
+                generationConfig: sanitizeGeminiGenerationConfig(modelToUse, {
+                    temperature: 0.1,
+                    ...(lightThinking && { thinkingConfig: lightThinking }),
+                }),
                 safetySettings: getGeminiSafetySettings()
             };
         }

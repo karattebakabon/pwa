@@ -27,7 +27,7 @@ const BASE_STORES = [
 const PROFILE_SETTING_KEYS = [
     'apiProvider', 'apiKey', 'zaiApiKey', 'bedrockAccessKey', 'bedrockSecretKey', 'bedrockRegion',
     'modelName', 'systemPrompt', 'temperature', 'maxTokens', 'topK', 'topP',
-    'presencePenalty', 'frequencyPenalty', 'thinkingBudget', 'includeThoughts',
+    'presencePenalty', 'frequencyPenalty', 'thinkingBudget', 'geminiThinkingLevel', 'includeThoughts',
     'enableThoughtTranslation', 'thoughtTranslationModel', 'dummyUser',
     'applyDummyToProofread', 'applyDummyToTranslate', 'dummyModel', 'reverseDummyOrder', 'concatDummyModel',
     'additionalModels', 'enterToSend', 'historySortOrder', 'darkMode', 'fontFamily',

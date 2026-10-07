@@ -72,6 +72,8 @@ try {
         topKInput: document.getElementById('top-k'),
         topPInput: document.getElementById('top-p'),
         thinkingBudgetInput: document.getElementById('thinking-budget'),
+        geminiThinkingLevelSelect: document.getElementById('gemini-thinking-level'),
+        geminiThinkingLevelNote: document.getElementById('gemini-thinking-level-note'),
         includeThoughtsToggle: document.getElementById('include-thoughts-toggle'),
         thoughtTranslationOptionsDiv: document.getElementById('thought-translation-options'),
         enableThoughtTranslationCheckbox: document.getElementById('enable-thought-translation'),

@@ -10,6 +10,8 @@ import { interruptibleSleep, sleep } from '../utils/format.js';
 import { isRetryableStatus, maxRateLimitWaitMs, parseRetryAfter, formatWaitDuration } from '../utils/retry.js';
 import { isRetiredModelError, resolveRetiredModel } from './retired-model.js';
 import { getGeminiSafetySettings } from '../utils/safety.js';
+import { buildGeminiThinkingConfig } from '../utils/gemini-thinking.js';
+import { sanitizeGeminiGenerationConfig } from '../utils/gemini-params.js';
 
 export const messageMethods = {
 
@@ -39,9 +41,10 @@ export const messageMethods = {
         if (topK !== null) generationConfig.topK = topK;
         if (topP !== null) generationConfig.topP = topP;
 
+        const sendConfig = sanitizeGeminiGenerationConfig(proofreadingModelName, generationConfig);
         const requestBody = {
             contents: [{ role: 'user', parts: [{ text: textToProofread }] }],
-            ...(Object.keys(generationConfig).length > 0 && { generationConfig }),
+            ...(Object.keys(sendConfig).length > 0 && { generationConfig: sendConfig }),
             ...(systemInstruction && { systemInstruction }),
             safetySettings: getGeminiSafetySettings()
         };
@@ -478,11 +481,14 @@ export const messageMethods = {
             if (state.settings.maxTokens !== null) generationConfig.maxOutputTokens = state.settings.maxTokens;
             if (state.settings.topK !== null) generationConfig.topK = state.settings.topK;
             if (state.settings.topP !== null) generationConfig.topP = state.settings.topP;
-            if ((state.settings.apiProvider || 'gemini') === 'gemini' &&
-                    ((state.settings.thinkingBudget > 0) || state.settings.includeThoughts)) {
-                generationConfig.thinkingConfig = {};
-                if(state.settings.thinkingBudget > 0) generationConfig.thinkingConfig.thinkingBudget = state.settings.thinkingBudget;
-                if(state.settings.includeThoughts) generationConfig.thinkingConfig.includeThoughts = true;
+            if ((state.settings.apiProvider || 'gemini') === 'gemini') {
+                const thinkingConfig = buildGeminiThinkingConfig({
+                    model: state.settings.modelName,
+                    thinkingLevel: state.settings.geminiThinkingLevel,
+                    thinkingBudget: state.settings.thinkingBudget,
+                    includeThoughts: state.settings.includeThoughts,
+                });
+                if (thinkingConfig) generationConfig.thinkingConfig = thinkingConfig;
             }
 
             const summaryText = this._buildSummaryForPrompt();
@@ -1171,11 +1177,14 @@ export const messageMethods = {
                 if (state.settings.maxTokens !== null) generationConfig.maxOutputTokens = state.settings.maxTokens;
                 if (state.settings.topK !== null) generationConfig.topK = state.settings.topK;
                 if (state.settings.topP !== null) generationConfig.topP = state.settings.topP;
-                if ((state.settings.apiProvider || 'gemini') === 'gemini' &&
-                        ((state.settings.thinkingBudget > 0) || state.settings.includeThoughts)) {
-                    generationConfig.thinkingConfig = {};
-                    if(state.settings.thinkingBudget > 0) generationConfig.thinkingConfig.thinkingBudget = state.settings.thinkingBudget;
-                    if(state.settings.includeThoughts) generationConfig.thinkingConfig.includeThoughts = true;
+                if ((state.settings.apiProvider || 'gemini') === 'gemini') {
+                    const thinkingConfig = buildGeminiThinkingConfig({
+                        model: state.settings.modelName,
+                        thinkingLevel: state.settings.geminiThinkingLevel,
+                        thinkingBudget: state.settings.thinkingBudget,
+                        includeThoughts: state.settings.includeThoughts,
+                    });
+                    if (thinkingConfig) generationConfig.thinkingConfig = thinkingConfig;
                 }
                 const systemInstruction = state.currentSystemPrompt?.trim() ? { role: "system", parts: [{ text: state.currentSystemPrompt.trim() }] } : null;
     

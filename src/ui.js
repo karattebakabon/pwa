@@ -1,5 +1,6 @@
 // uiUtils（Phase 1 で app.js から抽出）。挙動は不変。
 import { CHAT_TITLE_LENGTH, DARK_THEME_COLOR, DEFAULT_BEDROCK_REGION, DEFAULT_FONT_FAMILY, DEFAULT_MODEL, IMPORT_PREFIX, LIGHT_THEME_COLOR, MAX_HISTORY_EXCERPTS, MAX_TOTAL_ATTACHMENT_SIZE, TEXTAREA_MAX_HEIGHT, getAnthropicEffortLevels } from './constants.js';
+import { getGeminiThinkingLevels } from './utils/gemini-thinking.js';
 import { appLogic } from './app-logic.js';
 import { base64ToBlob, formatFileSize } from './utils/format.js';
 import { dbUtils } from './db.js';
@@ -1169,6 +1170,9 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         elements.topKInput.value = state.settings.topK === null ? '' : state.settings.topK;
         elements.topPInput.value = state.settings.topP === null ? '' : state.settings.topP;
         elements.thinkingBudgetInput.value = state.settings.thinkingBudget === null ? '' : state.settings.thinkingBudget;
+        if (elements.geminiThinkingLevelSelect) {
+            elements.geminiThinkingLevelSelect.value = state.settings.geminiThinkingLevel || '';
+        }
         elements.includeThoughtsToggle.checked = state.settings.includeThoughts;
         elements.enableThoughtTranslationCheckbox.checked = state.settings.enableThoughtTranslation;
         elements.thoughtTranslationModelSelect.value = state.settings.thoughtTranslationModel || 'gemini-2.5-flash-lite';
@@ -1682,6 +1686,51 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         const isImageModel = isImageGenerationModel(selectedModel);
         elements.modelWarningMessage.classList.toggle('hidden', !isImageModel);
         this.updateAnthropicEffortOptions();
+        this.updateGeminiThinkingLevelOptions();
+    },
+    // 選択中のGeminiモデルに応じて thinking_level の選択肢を絞り込む。
+    updateGeminiThinkingLevelOptions() {
+        const select = elements.geminiThinkingLevelSelect;
+        if (!select) return;
+
+        const model = (elements.modelNameSelect && elements.modelNameSelect.value) || state.settings.modelName || '';
+        const isGeminiModel = model.toLowerCase().startsWith('gemini');
+        const note = elements.geminiThinkingLevelNote;
+        if (!isGeminiModel) {
+            if (note) {
+                note.textContent = '';
+                note.classList.add('hidden');
+            }
+            return;
+        }
+
+        const levels = getGeminiThinkingLevels(model);
+        for (const option of select.options) {
+            const supported = option.value === '' || Boolean(levels?.includes(option.value));
+            option.hidden = !supported;
+            option.disabled = !supported;
+        }
+
+        // モデル変更後に古い非対応値を残すとAPIエラーになりうるので、既定へ戻して保存する。
+        if (select.value && (!levels || !levels.includes(select.value))) {
+            select.value = '';
+            if (state.settings.geminiThinkingLevel !== '') {
+                state.settings.geminiThinkingLevel = '';
+                if (state.activeProfile) {
+                    state.activeProfile.settings = state.activeProfile.settings || {};
+                    state.activeProfile.settings.geminiThinkingLevel = '';
+                    dbUtils.updateProfile(state.activeProfile).catch(() => {});
+                }
+            }
+        }
+
+        if (note) {
+            let message = '';
+            if (!levels) message = '※ このモデルは thinking_level 非対応です。';
+            else if (!levels.includes('minimal')) message = '※ minimal はこのモデルでは選べません。';
+            note.textContent = message;
+            note.classList.toggle('hidden', !message);
+        }
     },
     // 選択中のAnthropicモデルに応じて Effort の選択肢を絞り込み、注意書きを出す。
     updateAnthropicEffortOptions() {

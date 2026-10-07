@@ -1375,6 +1375,7 @@ export const lifecycleMethods = {
             topK: { element: elements.topKInput, event: 'input' },
             topP: { element: elements.topPInput, event: 'input' },
             thinkingBudget: { element: elements.thinkingBudgetInput, event: 'input' },
+            geminiThinkingLevel: { element: elements.geminiThinkingLevelSelect, event: 'change' },
             includeThoughts: { element: elements.includeThoughtsToggle, event: 'change' },
             enableThoughtTranslation: {
                 element: elements.enableThoughtTranslationCheckbox,
