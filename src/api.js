@@ -67,6 +67,7 @@ export const apiUtils = {
     // Gemini形式からOpenAI形式への変換
     convertGeminiToOpenAIFormat(messagesForApi, opts = {}) {
         const cfgPassthroughReasoning = opts.passthroughReasoning === true;
+        const cfgPassthroughReasoningDetails = opts.passthroughReasoningDetails === true;
         const cfgReasoningEchoPad = opts.reasoningEchoPad === true;
         const openAIMessages = [];
         
@@ -156,6 +157,21 @@ export const apiUtils = {
                         // 実思考が無いターンは半角スペース1個で埋めて要件を満たす。
                         message.reasoning_content = ' ';
                     }
+                }
+
+                // OpenRouter の Gemini 系は、応答に含まれる reasoning_details（思考の
+                // 構造化データ。thought_signature を含む）を毎回のリクエストでそのまま
+                // 返さないと "Gemini models require OpenRouter reasoning details to be
+                // preserved in each request" (400) で拒否される。思考の文字列だけでは
+                // 足りず、配列の順序も変えてはいけない。
+                // 受け付けないプロバイダーが400になるため cfg 経由の opt-in にする。
+                if (
+                    cfgPassthroughReasoningDetails &&
+                    role === 'assistant' &&
+                    Array.isArray(geminiMsg._reasoningDetails) &&
+                    geminiMsg._reasoningDetails.length > 0
+                ) {
+                    message.reasoning_details = geminiMsg._reasoningDetails;
                 }
 
                 // コンテンツの設定
@@ -278,7 +294,16 @@ export const apiUtils = {
                     candidates.push({
                         content: { parts },
                         finishReason: this.mapFinishReason(choice.finish_reason),
-                        index: choice.index
+                        index: choice.index,
+                        // OpenRouter の Gemini 系は、思考の構造化データ（reasoning_details。
+                        // thought_signature を含む）を毎回のリクエストでそのまま返さないと
+                        // 400 になる。テキストだけでは復元できないため配列を丸ごと保持し、
+                        // 履歴経由で assistant メッセージへ戻せるようにする。
+                        reasoningDetails:
+                            Array.isArray(message.reasoning_details) &&
+                            message.reasoning_details.length > 0
+                                ? message.reasoning_details
+                                : undefined
                     });
                 }
             }
@@ -616,8 +641,17 @@ export const apiUtils = {
             ? finalGenerationConfig
             : sanitizeGeminiGenerationConfig(model, finalGenerationConfig);
 
+        // 内部メタデータ（OpenRouter の reasoning_details 復元用）は Gemini API へ送らない。
+        // Gemini は contents 内の未知フィールドを 400 (Unknown name) で拒否するため。
+        const contentsForGemini = messagesForApi.map((msg) => {
+            if (!msg || !msg._reasoningDetails) return msg;
+            const clone = { ...msg };
+            delete clone._reasoningDetails;
+            return clone;
+        });
+
         const requestBody = {
-            contents: messagesForApi,
+            contents: contentsForGemini,
             ...(Object.keys(sendGenerationConfig).length > 0 && { generationConfig: sendGenerationConfig }),
             safetySettings : getGeminiSafetySettings()
         };
@@ -889,6 +923,7 @@ export const apiUtils = {
         // のため、実思考が無いターンは半角スペースでパディングする（reasoningEchoPad）。
         const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
             passthroughReasoning: cfg.passthroughReasoning === true,
+            passthroughReasoningDetails: cfg.passthroughReasoningDetails === true,
             reasoningEchoPad: needsReasoningEchoPad(model)
         });
 
@@ -1086,6 +1121,14 @@ export const apiUtils = {
                         // プロバイダー特有の追加情報があれば追加
                         if (cfg.verboseError && errorData.error.code) {
                             errorMsg += ` (code: ${errorData.error.code})`;
+                        }
+                        // OpenRouter 等はプロバイダー側の生エラーを metadata.raw に入れて返す。
+                        // 「Provider returned error (code: 400)」だけでは原因が分からないため
+                        // 中身（例: "Gemini models require OpenRouter reasoning details to be
+                        // preserved in each request."）を添えて画面に出せるようにする。
+                        const rawDetail = errorData.error.metadata?.raw;
+                        if (typeof rawDetail === 'string' && rawDetail.trim()) {
+                            errorMsg += ` — ${rawDetail.trim().slice(0, 300)}`;
                         }
                     } else if (errorData.message) {
                         errorMsg = `APIエラー (${response.status}): ${errorData.message}`;
@@ -1782,6 +1825,8 @@ export const apiUtils = {
                     missingKeyMessage: 'OpenRouter APIキーが設定されていません。',
                     extraHeaders: () => ({ 'HTTP-Referer': window.location.origin, 'X-Title': 'PWA-lily' }),
                     supportsReasoning: true,
+                    // Gemini 系（@preset 経由を含む）は reasoning_details を履歴で戻す必要がある
+                    passthroughReasoningDetails: true,
                     verboseError: true
                 }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
             case 'bedrock':

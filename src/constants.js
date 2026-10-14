@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.69';
+export const APP_VERSION = '1.25.70';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -284,6 +284,10 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.70': [
+        'OpenRouter 経由の Gemini 系モデル（@preset/argon-flex など）で、2通目以降が400エラー（Provider returned error）になる不具合を修正しました。OpenRouter は Gemini の思考の構造化データ（reasoning_details。thought_signature を含む）を毎回のリクエストでそのまま返すことを要求しますが、アプリが思考のテキストだけを保持して構造を捨てていたためです（APIキーやアカウントの問題ではありません。1通目は通っても、履歴のある送信やツール実行の再送で失敗していました）。',
+        'OpenRouter のエラー詳細（metadata.raw）をエラーメッセージに含めるようにしました。「Provider returned error (code: 400)」だけでは原因が分からなかったためです。',
+    ],
     '1.69': [
         'OpenRouter の「プリセット」をモデルとして使えるようにしました。設定で OpenRouter を選ぶと、モデル名に @preset/argon-flex のような指定ができます（例: Gemini 4 Argon を flex ティアで使うプリセット）。モデル選択の「追加モデル」にも最初から並ぶので、選ぶだけで切り替わります。',
         'プリセットは OpenRouter 側に保存した設定（モデル・パラメータ・サービスティア・ツールなど）を丸ごと適用する仕組みで、OpenRouter のアカウントに紐づきます。PWA-lily で使っている API キーと同じアカウントで作成したプリセットだけが使えます（公開モデル一覧には出てこないため、モデル名は手入力もできます）。',

@@ -102,6 +102,7 @@ export const dbUtils = {
                 content: msg.content,
                 timestamp: msg.timestamp,
                 thoughtSummary: msg.thoughtSummary || null,
+                reasoningDetails: msg.reasoningDetails || null,
                 tool_calls: msg.tool_calls || null,
                 imageIds: msg.imageIds,
                 finishReason: msg.finishReason,

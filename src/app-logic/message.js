@@ -177,6 +177,9 @@ export const messageMethods = {
                 role: 'model',
                 content: result.content || '',
                 thoughtSummary: (finalTurnResults.length === 0) ? result.thoughtSummary : null,
+                // OpenRouter の Gemini 系は reasoning_details を履歴で戻す必要があるため、
+                // 最後のターンの構造化思考を保持する（thoughtSummary と同じ保存条件）。
+                reasoningDetails: (finalTurnResults.length === 0) ? result.reasoningDetails : null,
                 tool_calls: result.toolCalls,
                 timestamp: Date.now(),
                 finishReason: result.finishReason,
@@ -268,7 +271,13 @@ export const messageMethods = {
                         ...(result.thoughtParts || []),
                         ...result.toolCalls.map(tc => ({ functionCall: tc.functionCall }))
                     ];
-                    const modelMessageForApi = { role: 'model', parts: partsForApi };
+                    const modelMessageForApi = {
+                        role: 'model',
+                        parts: partsForApi,
+                        // OpenRouter の Gemini 系は、tool 結果を返す再送でも reasoning_details を
+                        // 含めないと400になる（thoughtParts は OpenAI 形式への変換時に落ちる）。
+                        _reasoningDetails: result.reasoningDetails || undefined
+                    };
                     const toolResultsForApi = toolResults.map(tr => ({ 
                         role: 'tool', 
                         parts: [{ 
@@ -307,7 +316,13 @@ export const messageMethods = {
                     ...result.toolCalls.map(tc => ({ functionCall: tc.functionCall }))
                 ];
 
-                const modelMessageForApi = { role: 'model', parts: partsForApi };
+                const modelMessageForApi = {
+                    role: 'model',
+                    parts: partsForApi,
+                    // OpenRouter の Gemini 系は、tool 結果を返す再送でも reasoning_details を
+                    // 含めないと400になる（thoughtParts は OpenAI 形式への変換時に落ちる）。
+                    _reasoningDetails: result.reasoningDetails || undefined
+                };
                 const toolResultsForApi = toolResults.map(tr => ({
                     role: 'tool',
                     parts: [{
@@ -1613,6 +1628,13 @@ export const messageMethods = {
                     thoughtSummary: finalThoughtSummary.trim() || null,
                     toolCalls: finalToolCalls.length > 0 ? finalToolCalls : null,
                     thoughtParts: finalThoughtParts.length > 0 ? finalThoughtParts : null, // 追加
+                    // OpenRouter の Gemini 系は思考の構造化データ（reasoning_details。
+                    // thought_signature を含む）を履歴でそのまま戻さないと400になる。
+                    // convertOpenAIToGeminiFormat が candidate に保持したものを引き継ぐ。
+                    reasoningDetails:
+                        Array.isArray(candidate.reasoningDetails) && candidate.reasoningDetails.length > 0
+                            ? candidate.reasoningDetails
+                            : null,
                     finishReason: candidate.finishReason,
                     safetyRatings: candidate.safetyRatings,
                     usageMetadata: responseData.usageMetadata,

@@ -1892,7 +1892,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.69";
+  var APP_VERSION = "1.25.70";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2076,6 +2076,10 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.70": [
+      "OpenRouter 経由の Gemini 系モデル（@preset/argon-flex など）で、2通目以降が400エラー（Provider returned error）になる不具合を修正しました。OpenRouter は Gemini の思考の構造化データ（reasoning_details。thought_signature を含む）を毎回のリクエストでそのまま返すことを要求しますが、アプリが思考のテキストだけを保持して構造を捨てていたためです（APIキーやアカウントの問題ではありません。1通目は通っても、履歴のある送信やツール実行の再送で失敗していました）。",
+      "OpenRouter のエラー詳細（metadata.raw）をエラーメッセージに含めるようにしました。「Provider returned error (code: 400)」だけでは原因が分からなかったためです。"
+    ],
     "1.69": [
       "OpenRouter の「プリセット」をモデルとして使えるようにしました。設定で OpenRouter を選ぶと、モデル名に @preset/argon-flex のような指定ができます（例: Gemini 4 Argon を flex ティアで使うプリセット）。モデル選択の「追加モデル」にも最初から並ぶので、選ぶだけで切り替わります。",
       "プリセットは OpenRouter 側に保存した設定（モデル・パラメータ・サービスティア・ツールなど）を丸ごと適用する仕組みで、OpenRouter のアカウントに紐づきます。PWA-lily で使っている API キーと同じアカウントで作成したプリセットだけが使えます（公開モデル一覧には出てこないため、モデル名は手入力もできます）。",
@@ -9322,6 +9326,7 @@ AI: ${firstModelContent}`;
     // Gemini形式からOpenAI形式への変換
     convertGeminiToOpenAIFormat(messagesForApi, opts = {}) {
       const cfgPassthroughReasoning = opts.passthroughReasoning === true;
+      const cfgPassthroughReasoningDetails = opts.passthroughReasoningDetails === true;
       const cfgReasoningEchoPad = opts.reasoningEchoPad === true;
       const openAIMessages = [];
       for (const geminiMsg of messagesForApi) {
@@ -9381,6 +9386,9 @@ AI: ${firstModelContent}`;
             } else if (cfgReasoningEchoPad) {
               message.reasoning_content = " ";
             }
+          }
+          if (cfgPassthroughReasoningDetails && role === "assistant" && Array.isArray(geminiMsg._reasoningDetails) && geminiMsg._reasoningDetails.length > 0) {
+            message.reasoning_details = geminiMsg._reasoningDetails;
           }
           if (contentParts.length > 0) {
             if (contentParts.length === 1 && contentParts[0].type === "text") {
@@ -9483,7 +9491,12 @@ AI: ${firstModelContent}`;
             candidates.push({
               content: { parts },
               finishReason: this.mapFinishReason(choice.finish_reason),
-              index: choice.index
+              index: choice.index,
+              // OpenRouter の Gemini 系は、思考の構造化データ（reasoning_details。
+              // thought_signature を含む）を毎回のリクエストでそのまま返さないと
+              // 400 になる。テキストだけでは復元できないため配列を丸ごと保持し、
+              // 履歴経由で assistant メッセージへ戻せるようにする。
+              reasoningDetails: Array.isArray(message.reasoning_details) && message.reasoning_details.length > 0 ? message.reasoning_details : void 0
             });
           }
         }
@@ -9740,8 +9753,14 @@ AI: ${firstModelContent}`;
         delete finalGenerationConfig.temperature;
       }
       const sendGenerationConfig = isImageGenModel ? finalGenerationConfig : sanitizeGeminiGenerationConfig(model, finalGenerationConfig);
+      const contentsForGemini = messagesForApi.map((msg) => {
+        if (!msg || !msg._reasoningDetails) return msg;
+        const clone = { ...msg };
+        delete clone._reasoningDetails;
+        return clone;
+      });
       const requestBody = {
-        contents: messagesForApi,
+        contents: contentsForGemini,
         ...Object.keys(sendGenerationConfig).length > 0 && { generationConfig: sendGenerationConfig },
         safetySettings: getGeminiSafetySettings()
       };
@@ -9970,6 +9989,7 @@ AI: ${firstModelContent}`;
       const model = state.settings.modelName || cfg.defaultModel;
       const openAIMessages = this.convertGeminiToOpenAIFormat(messagesForApi, {
         passthroughReasoning: cfg.passthroughReasoning === true,
+        passthroughReasoningDetails: cfg.passthroughReasoningDetails === true,
         reasoningEchoPad: needsReasoningEchoPad(model)
       });
       if (systemInstruction && systemInstruction.parts && systemInstruction.parts.length > 0) {
@@ -10122,6 +10142,10 @@ AI: ${firstModelContent}`;
               errorMsg = `APIエラー (${response.status}): ${errorData.error.message}`;
               if (cfg.verboseError && errorData.error.code) {
                 errorMsg += ` (code: ${errorData.error.code})`;
+              }
+              const rawDetail = errorData.error.metadata?.raw;
+              if (typeof rawDetail === "string" && rawDetail.trim()) {
+                errorMsg += ` — ${rawDetail.trim().slice(0, 300)}`;
               }
             } else if (errorData.message) {
               errorMsg = `APIエラー (${response.status}): ${errorData.message}`;
@@ -10705,6 +10729,8 @@ ${knowledgeText}`;
             missingKeyMessage: "OpenRouter APIキーが設定されていません。",
             extraHeaders: /* @__PURE__ */ __name(() => ({ "HTTP-Referer": window.location.origin, "X-Title": "PWA-lily" }), "extraHeaders"),
             supportsReasoning: true,
+            // Gemini 系（@preset 経由を含む）は reasoning_details を履歴で戻す必要がある
+            passthroughReasoningDetails: true,
             verboseError: true
           }, messagesForApi, generationConfig, systemInstruction, forceCalling, signal);
         case "bedrock":
@@ -10998,6 +11024,9 @@ ${knowledgeText}`;
           role: "model",
           content: result.content || "",
           thoughtSummary: finalTurnResults.length === 0 ? result.thoughtSummary : null,
+          // OpenRouter の Gemini 系は reasoning_details を履歴で戻す必要があるため、
+          // 最後のターンの構造化思考を保持する（thoughtSummary と同じ保存条件）。
+          reasoningDetails: finalTurnResults.length === 0 ? result.reasoningDetails : null,
           tool_calls: result.toolCalls,
           timestamp: Date.now(),
           finishReason: result.finishReason,
@@ -11075,7 +11104,13 @@ ${knowledgeText}`;
               ...result.thoughtParts || [],
               ...result.toolCalls.map((tc) => ({ functionCall: tc.functionCall }))
             ];
-            const modelMessageForApi2 = { role: "model", parts: partsForApi2 };
+            const modelMessageForApi2 = {
+              role: "model",
+              parts: partsForApi2,
+              // OpenRouter の Gemini 系は、tool 結果を返す再送でも reasoning_details を
+              // 含めないと400になる（thoughtParts は OpenAI 形式への変換時に落ちる）。
+              _reasoningDetails: result.reasoningDetails || void 0
+            };
             const toolResultsForApi2 = toolResults.map((tr) => ({
               role: "tool",
               parts: [{
@@ -11109,7 +11144,13 @@ ${knowledgeText}`;
           ...result.thoughtParts || [],
           ...result.toolCalls.map((tc) => ({ functionCall: tc.functionCall }))
         ];
-        const modelMessageForApi = { role: "model", parts: partsForApi };
+        const modelMessageForApi = {
+          role: "model",
+          parts: partsForApi,
+          // OpenRouter の Gemini 系は、tool 結果を返す再送でも reasoning_details を
+          // 含めないと400になる（thoughtParts は OpenAI 形式への変換時に落ちる）。
+          _reasoningDetails: result.reasoningDetails || void 0
+        };
         const toolResultsForApi = toolResults.map((tr) => ({
           role: "tool",
           parts: [{
@@ -12128,6 +12169,10 @@ ${knowledgeText}`;
             toolCalls: finalToolCalls.length > 0 ? finalToolCalls : null,
             thoughtParts: finalThoughtParts.length > 0 ? finalThoughtParts : null,
             // 追加
+            // OpenRouter の Gemini 系は思考の構造化データ（reasoning_details。
+            // thought_signature を含む）を履歴でそのまま戻さないと400になる。
+            // convertOpenAIToGeminiFormat が candidate に保持したものを引き継ぐ。
+            reasoningDetails: Array.isArray(candidate.reasoningDetails) && candidate.reasoningDetails.length > 0 ? candidate.reasoningDetails : null,
             finishReason: candidate.finishReason,
             safetyRatings: candidate.safetyRatings,
             usageMetadata: responseData.usageMetadata,
@@ -12273,6 +12318,9 @@ ${knowledgeText}`;
         if (msg.role === "model" && msg.thoughtSummary && typeof msg.thoughtSummary === "string" && msg.thoughtSummary.trim() !== "") {
           msg._thoughtSummaryForApi = msg.thoughtSummary;
         }
+        if (msg.role === "model" && Array.isArray(msg.reasoningDetails) && msg.reasoningDetails.length > 0) {
+          msg._reasoningDetails = msg.reasoningDetails;
+        }
       });
       let historyToProcess;
       if (state.currentSummarizedContext && state.currentSummarizedContext.summaryText) {
@@ -12349,7 +12397,12 @@ ${summaryText}`,
             });
           }
         }
-        return { role: msg.role === "tool" ? "tool" : msg.role === "model" ? "model" : "user", parts };
+        const outMessage = { role: msg.role === "tool" ? "tool" : msg.role === "model" ? "model" : "user", parts };
+        if (msg._reasoningDetails) {
+          outMessage._reasoningDetails = msg._reasoningDetails;
+          delete msg._reasoningDetails;
+        }
+        return outMessage;
       }).filter((c) => c.parts.length > 0).map((msg) => {
         if (msg.role === "model" && msg._thoughtSummaryForApi) {
           msg.parts.unshift({ text: msg._thoughtSummaryForApi, thought: true });
@@ -14701,6 +14754,7 @@ ${summaryText}` : summaryText;
           content: msg.content,
           timestamp: msg.timestamp,
           thoughtSummary: msg.thoughtSummary || null,
+          reasoningDetails: msg.reasoningDetails || null,
           tool_calls: msg.tool_calls || null,
           imageIds: msg.imageIds,
           finishReason: msg.finishReason,

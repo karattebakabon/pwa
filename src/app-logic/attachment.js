@@ -43,6 +43,14 @@ export const attachmentMethods = {
             if (msg.role === 'model' && msg.thoughtSummary && typeof msg.thoughtSummary === 'string' && msg.thoughtSummary.trim() !== '') {
                 msg._thoughtSummaryForApi = msg.thoughtSummary;
             }
+            // OpenRouter の Gemini 系は、応答の reasoning_details（構造化思考。
+            // thought_signature を含む）を毎回のリクエストでそのまま戻さないと
+            // "Gemini models require OpenRouter reasoning details to be preserved
+            // in each request" (400) になる。テキストの thoughtSummary とは別に、
+            // 配列を丸ごと保存して復元する（順序も変えてはいけない）。
+            if (msg.role === 'model' && Array.isArray(msg.reasoningDetails) && msg.reasoningDetails.length > 0) {
+                msg._reasoningDetails = msg.reasoningDetails;
+            }
         });
 
         let historyToProcess;
@@ -127,7 +135,15 @@ export const attachmentMethods = {
                     });
                 }
             }
-            return { role: msg.role === 'tool' ? 'tool' : (msg.role === 'model' ? 'model' : 'user'), parts };
+            const outMessage = { role: msg.role === 'tool' ? 'tool' : (msg.role === 'model' ? 'model' : 'user'), parts };
+            // OpenRouter の Gemini 系は reasoning_details をそのまま戻す必要があるため、
+            // parts メッセージのトップレベルに保持する（convertGeminiToOpenAIFormat が
+            // passthroughReasoningDetails オプションで assistant の reasoning_details へ変換）。
+            if (msg._reasoningDetails) {
+                outMessage._reasoningDetails = msg._reasoningDetails;
+                delete msg._reasoningDetails;
+            }
+            return outMessage;
         }).filter(c => c.parts.length > 0).map(msg => {
             // thinkingモデル用: thoughtSummary を thought:true パートとして復元。
             // convertGeminiToOpenAIFormat がこれを reasoning_content に変換して

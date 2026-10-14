@@ -62,4 +62,52 @@ describe('reasoning_content パディング', () => {
         const assistant = out.find((m) => m.role === 'assistant');
         expect('reasoning_content' in assistant).toBe(false);
     });
+
+    // OpenRouter の Gemini 系は、応答の reasoning_details（thought_signature を含む構造化
+    // 思考）を毎回のリクエストでそのまま返さないと 400
+    // "Gemini models require OpenRouter reasoning details to be preserved in each request"
+    // になる。テキスト（thoughtSummary）だけでは復元できないため配列を丸ごと往復させる。
+    it('passthroughReasoningDetails 有効時は assistant の _reasoningDetails を reasoning_details に戻す', () => {
+        const details = [
+            { type: 'thinking', summary: [{ type: 'summary_text', text: '考えた' }], signature: 'sig_1' },
+        ];
+        const msgs = [
+            { role: 'user', parts: [{ text: 'hi' }] },
+            { role: 'model', parts: [{ text: 'こんにちは！' }], _reasoningDetails: details },
+            { role: 'user', parts: [{ text: 'again' }] },
+        ];
+        const out = apiUtils.convertGeminiToOpenAIFormat(msgs, {
+            passthroughReasoningDetails: true,
+        });
+        const assistant = out.find((m) => m.role === 'assistant');
+        expect(assistant.reasoning_details).toEqual(details);
+    });
+
+    it('passthroughReasoningDetails 無効時（他プロバイダー）は reasoning_details を付けない', () => {
+        const msgs = [
+            { role: 'user', parts: [{ text: 'hi' }] },
+            {
+                role: 'model',
+                parts: [{ text: 'hello' }],
+                _reasoningDetails: [{ type: 'thinking', summary: 'x' }],
+            },
+        ];
+        const out = apiUtils.convertGeminiToOpenAIFormat(msgs, {});
+        const assistant = out.find((m) => m.role === 'assistant');
+        expect('reasoning_details' in assistant).toBe(false);
+    });
+
+    it('user メッセージの _reasoningDetails は reasoning_details にしない（assistant のみ）', () => {
+        const msgs = [
+            {
+                role: 'user',
+                parts: [{ text: 'hi' }],
+                _reasoningDetails: [{ type: 'thinking', summary: 'x' }],
+            },
+        ];
+        const out = apiUtils.convertGeminiToOpenAIFormat(msgs, {
+            passthroughReasoningDetails: true,
+        });
+        expect('reasoning_details' in out[0]).toBe(false);
+    });
 });

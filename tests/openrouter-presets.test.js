@@ -37,4 +37,25 @@ describe('OpenRouter presets (@preset/<slug>)', () => {
         expect(api).toContain('const model = state.settings.modelName || cfg.defaultModel;');
         expect(api).toContain('model: model,');
     });
+
+    // OpenRouter 経由の Gemini 系は reasoning_details を毎回のリクエストで戻す必要がある
+    // （400 "Gemini models require OpenRouter reasoning details to be preserved..."）。
+    it('passes reasoning_details back for the OpenRouter provider only', () => {
+        const api = read('src/api.js');
+        expect(api).toContain('passthroughReasoningDetails: true');
+        expect(api).toContain('message.reasoning_details = geminiMsg._reasoningDetails;');
+        // Gemini ネイティブ送信では内部メタデータを除去する（未知フィールドで400になるため）
+        expect(api).toContain('const contentsForGemini = messagesForApi.map((msg) => {');
+        // 履歴再構築（次ターン）でも復元する
+        const attachment = read('src/app-logic/attachment.js');
+        expect(attachment).toContain('msg._reasoningDetails = msg.reasoningDetails;');
+        // 応答解析側で構造を保持する
+        const message = read('src/app-logic/message.js');
+        expect(message).toContain('reasoningDetails:');
+    });
+
+    it('surfaces the provider raw error so 400s are diagnosable', () => {
+        const api = read('src/api.js');
+        expect(api).toContain('errorData.error.metadata?.raw');
+    });
 });
