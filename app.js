@@ -1892,7 +1892,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.70";
+  var APP_VERSION = "1.25.71";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2076,6 +2076,9 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.71": [
+      "「ダミーUserプロンプト」「ダミーModelプロンプト」を使っていると、Gemini・OpenRouter で「Requests ending with a model turn are not supported.」（400）になり、新規チャットの1通目から送信できなくなる不具合を修正しました。ダミーの例を会話の末尾に追加していたため、履歴の最後がAI側（model）ターンになっていました。会話の先頭に置くよう変更しています（応答形式の例は冒頭で示すのが本来の使い方なので、ダミーの効き方は変わりません）。"
+    ],
     "1.70": [
       "OpenRouter 経由の Gemini 系モデル（@preset/argon-flex など）で、2通目以降が400エラー（Provider returned error）になる不具合を修正しました。OpenRouter は Gemini の思考の構造化データ（reasoning_details。thought_signature を含む）を毎回のリクエストでそのまま返すことを要求しますが、アプリが思考のテキストだけを保持して構造を捨てていたためです（APIキーやアカウントの問題ではありません。1通目は通っても、履歴のある送信やツール実行の再送で失敗していました）。",
       "OpenRouter のエラー詳細（metadata.raw）をエラーメッセージに含めるようにしました。「Provider returned error (code: 400)」だけでは原因が分からなかったためです。"
@@ -12345,21 +12348,23 @@ ${summaryText}`,
         historyToProcess = messagesForApi;
       }
       if (state.settings.dummyEnabled) {
+        const dummyMessages = [];
         if (state.settings.reverseDummyOrder) {
           if (state.settings.dummyModel) {
-            historyToProcess.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
+            dummyMessages.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
           }
           if (state.settings.dummyUser) {
-            historyToProcess.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
+            dummyMessages.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
           }
         } else {
           if (state.settings.dummyUser) {
-            historyToProcess.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
+            dummyMessages.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
           }
           if (state.settings.dummyModel) {
-            historyToProcess.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
+            dummyMessages.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
           }
         }
+        historyToProcess.unshift(...dummyMessages);
       }
       return historyToProcess.map((msg) => {
         const parts = [];

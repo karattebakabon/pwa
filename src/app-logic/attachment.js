@@ -81,25 +81,30 @@ export const attachmentMethods = {
             historyToProcess = messagesForApi;
         }
 
-        // ダミープロンプトの追加処理は共通
+        // ダミープロンプトは「会話の先頭」に挿入する（末尾に追加すると、通常順序の
+        // ダミーUser→ダミーModel では履歴の最後が model ターンになり、Gemini・OpenRouter が
+        // "Requests ending with a model turn are not supported." (400) で拒否するため）。
+        // ダミーは応答形式の例を示すものなので、会話の冒頭に置くのが本来の使い方。
         if (state.settings.dummyEnabled) {
+            const dummyMessages = [];
             if (state.settings.reverseDummyOrder) {
                 // 順序を入れ替える場合: ダミーModel → ダミーUser
                 if (state.settings.dummyModel) {
-                    historyToProcess.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
+                    dummyMessages.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
                 }
                 if (state.settings.dummyUser) {
-                    historyToProcess.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
+                    dummyMessages.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
                 }
             } else {
                 // 通常の順序: ダミーUser → ダミーModel
                 if (state.settings.dummyUser) {
-                    historyToProcess.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
+                    dummyMessages.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
                 }
                 if (state.settings.dummyModel) {
-                    historyToProcess.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
+                    dummyMessages.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
                 }
             }
+            historyToProcess.unshift(...dummyMessages);
         }
         
         return historyToProcess.map(msg => {

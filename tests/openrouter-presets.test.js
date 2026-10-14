@@ -58,4 +58,15 @@ describe('OpenRouter presets (@preset/<slug>)', () => {
         const api = read('src/api.js');
         expect(api).toContain('errorData.error.metadata?.raw');
     });
+
+    // ダミープロンプトを履歴の末尾に追加すると「最後が model ターン」になり、Gemini・
+    // OpenRouter が "Requests ending with a model turn are not supported." (400) で拒否する
+    // （新規チャットの1通目から失敗する）。先頭に置くことを固定する。
+    it('places dummy prompts at the head so history never ends with a model turn', () => {
+        const attachment = read('src/app-logic/attachment.js');
+        expect(attachment).toContain('historyToProcess.unshift(...dummyMessages);');
+        expect(attachment).not.toContain(
+            "historyToProcess.push({ role: 'model', content: state.settings.dummyModel"
+        );
+    });
 });
