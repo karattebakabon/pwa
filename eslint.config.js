@@ -23,6 +23,7 @@ export default [
             'coverage/**',
             '.eslint-report.json',
             'worker/.wrangler/**', // ← wrangler dev のローカル残骸（検証時の一時生成物）
+            '.worktrees/**', // ← git worktree（別ブランチの作業コピー。対象外）
         ],
     },
 
