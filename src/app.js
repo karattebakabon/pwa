@@ -147,6 +147,7 @@ export function registerServiceWorker() {
 // --- IndexedDBユーティリティ (dbUtils) ---
 import { dbUtils } from './db.js';
 import { getOpencodeSessionFetchInit } from './api.js';
+import { OPENROUTER_PRESETS } from './constants.js';
 
 // --- UIユーティリティ (uiUtils) ---
 
@@ -1052,6 +1053,25 @@ window.dbUtils = dbUtils;
                         addedCount++;
                     }
                 });
+            });
+            // OpenRouter のプリセット（@preset/<slug>）はアカウント限定で /v1/models の
+            // 公開一覧に出てこないため、定数から常に候補として出す（追加モデル欄への
+            // 記入は不要。すでに手入力されている場合は二重に出さない）。
+            const orCustomText = state.settings.customModelsText.openrouter || '';
+            const orCustomIds = orCustomText
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            OPENROUTER_PRESETS.forEach((preset) => {
+                if (customGroup && !orCustomIds.includes(preset.value)) {
+                    const opt = document.createElement('option');
+                    opt.value = preset.value;
+                    opt.textContent = preset.label;
+                    opt.dataset.provider = 'openrouter';
+                    opt.dataset.userDefined = 'true';
+                    customGroup.appendChild(opt);
+                    addedCount++;
+                }
             });
             // updateUserModelOptions() が旧 additionalModels 設定を見て optgroup を
             // disabled にしたまま残すことがあるため、ここで明示的に有効/無効を再設定する。

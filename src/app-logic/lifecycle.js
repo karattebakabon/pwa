@@ -24,6 +24,7 @@ import {
     MISTRAL_MODELS,
     OPENAI_MODELS,
     OPENCODE_MODELS,
+    OPENROUTER_PRESETS,
     SAKANA_MODELS,
     SETTINGS_STORE,
     SWIPE_THRESHOLD,
@@ -409,6 +410,14 @@ export const lifecycleMethods = {
                     : null) || [];
                 const list = elements.openrouterModelList;
                 list.textContent = '';
+                // プリセット（@preset/<slug>）はアカウント限定で /v1/models の公開一覧に
+                // 出てこないため、定数の候補を先頭に出す（例: @preset/argon-flex）。
+                OPENROUTER_PRESETS.forEach((preset) => {
+                    const opt = document.createElement('option');
+                    opt.value = preset.value;
+                    opt.label = preset.label;
+                    list.appendChild(opt);
+                });
                 fetched.forEach((id) => {
                     const opt = document.createElement('option');
                     opt.value = id;

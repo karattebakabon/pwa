@@ -1892,9 +1892,12 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.68";
+  var APP_VERSION = "1.25.69";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
+  var OPENROUTER_PRESETS = [
+    { value: "@preset/argon-flex", label: "Gemini 4 Argon (Flex) — @preset/argon-flex" }
+  ];
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
   var VERSION_ACK_STORAGE_KEY = "appVersionAcknowledged";
   var VERSION_LEGACY_STORAGE_KEY = "appVersion";
@@ -2073,6 +2076,11 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.69": [
+      "OpenRouter の「プリセット」をモデルとして使えるようにしました。設定で OpenRouter を選ぶと、モデル名に @preset/argon-flex のような指定ができます（例: Gemini 4 Argon を flex ティアで使うプリセット）。モデル選択の「追加モデル」にも最初から並ぶので、選ぶだけで切り替わります。",
+      "プリセットは OpenRouter 側に保存した設定（モデル・パラメータ・サービスティア・ツールなど）を丸ごと適用する仕組みで、OpenRouter のアカウントに紐づきます。PWA-lily で使っている API キーと同じアカウントで作成したプリセットだけが使えます（公開モデル一覧には出てこないため、モデル名は手入力もできます）。",
+      "OpenRouter のモデル名入力の候補に @preset/... を表示し、入力例の表記を更新しました。"
+    ],
     "1.68": [
       "Gemini の thinking_level（minimal / low / medium / high）を設定できるようにしました。対応段階はモデルに合わせて表示し、選択値はプロファイルに保存します。",
       "Gemini へ送る温度・Top P・Top K・Thinking Budgetをモデル別に制御し、今後のモデルや gemini-flash-latest には未対応の旧パラメータを送りません。翻訳・校正・要約/メモリ・画像プロンプト改善・画像チェックにも同じ制御を適用しました。"
@@ -5534,6 +5542,12 @@ Reason: [NGの場合の理由]`,
           const fetched = (state.settings && state.settings.fetchedModels ? state.settings.fetchedModels.openrouter : null) || [];
           const list = elements.openrouterModelList;
           list.textContent = "";
+          OPENROUTER_PRESETS.forEach((preset) => {
+            const opt = document.createElement("option");
+            opt.value = preset.value;
+            opt.label = preset.label;
+            list.appendChild(opt);
+          });
           fetched.forEach((id) => {
             const opt = document.createElement("option");
             opt.value = id;
@@ -16175,6 +16189,19 @@ ${pageText}
               addedCount++;
             }
           });
+        });
+        const orCustomText = state.settings.customModelsText.openrouter || "";
+        const orCustomIds = orCustomText.split(",").map((s) => s.trim()).filter(Boolean);
+        OPENROUTER_PRESETS.forEach((preset) => {
+          if (customGroup && !orCustomIds.includes(preset.value)) {
+            const opt = document.createElement("option");
+            opt.value = preset.value;
+            opt.textContent = preset.label;
+            opt.dataset.provider = "openrouter";
+            opt.dataset.userDefined = "true";
+            customGroup.appendChild(opt);
+            addedCount++;
+          }
         });
         if (customGroup) customGroup.disabled = addedCount === 0;
       }, "renderCustomModels");

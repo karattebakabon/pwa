@@ -55,9 +55,19 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.68';
+export const APP_VERSION = '1.25.69';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
+
+// OpenRouter の「プリセット」（モデル・生成パラメータ・サービスティア・ツール等を
+// まとめた、アカウント内の設定スナップショット）。OpenRouter はこれを仮想モデルとして
+// 扱うため、model フィールドに "@preset/<slug>" をそのまま送るだけでよい
+// （Hermes Agent の hermes_cli/models_validate.py::_parse_openrouter_preset と同じ扱い）。
+// プリセットはアカウント限定のため /v1/models の公開一覧には出てこない。ここに載せた
+// ものは「追加モデル」グループと OpenRouter モデル名入力の候補に自動で表示される。
+export const OPENROUTER_PRESETS = [
+    { value: '@preset/argon-flex', label: 'Gemini 4 Argon (Flex) — @preset/argon-flex' },
+];
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
 export const VERSION_ACK_STORAGE_KEY = 'appVersionAcknowledged';
 export const VERSION_LEGACY_STORAGE_KEY = 'appVersion';
@@ -274,6 +284,11 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.69': [
+        'OpenRouter の「プリセット」をモデルとして使えるようにしました。設定で OpenRouter を選ぶと、モデル名に @preset/argon-flex のような指定ができます（例: Gemini 4 Argon を flex ティアで使うプリセット）。モデル選択の「追加モデル」にも最初から並ぶので、選ぶだけで切り替わります。',
+        'プリセットは OpenRouter 側に保存した設定（モデル・パラメータ・サービスティア・ツールなど）を丸ごと適用する仕組みで、OpenRouter のアカウントに紐づきます。PWA-lily で使っている API キーと同じアカウントで作成したプリセットだけが使えます（公開モデル一覧には出てこないため、モデル名は手入力もできます）。',
+        'OpenRouter のモデル名入力の候補に @preset/... を表示し、入力例の表記を更新しました。',
+    ],
     '1.68': [
         'Gemini の thinking_level（minimal / low / medium / high）を設定できるようにしました。対応段階はモデルに合わせて表示し、選択値はプロファイルに保存します。',
         'Gemini へ送る温度・Top P・Top K・Thinking Budgetをモデル別に制御し、今後のモデルや gemini-flash-latest には未対応の旧パラメータを送りません。翻訳・校正・要約/メモリ・画像プロンプト改善・画像チェックにも同じ制御を適用しました。',

@@ -35,7 +35,7 @@
                 console.error("AWS Bedrock Runtime SDKの読み込みに失敗しました:", err);
             });
     </script>
-    <script src="app.js?v=1.25.68" defer></script>
+    <script src="app.js?v=1.25.69" defer></script>
 </head>
 <body>
     <div class="app-container">
@@ -465,10 +465,11 @@
 
                             <div id="openrouter-model-input-container" class="hidden">
                                 <label for="openrouter-model-input">OpenRouter モデル名:</label>
-                                <input type="text" id="openrouter-model-input" list="openrouter-model-list" placeholder="例: openai/gpt-5.1" aria-label="OpenRouter モデル名">
+                                <input type="text" id="openrouter-model-input" list="openrouter-model-list" placeholder="例: openai/gpt-5.1 / @preset/argon-flex" aria-label="OpenRouter モデル名">
                                 <datalist id="openrouter-model-list"></datalist>
                                 <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">
-                                    ※ 入力候補は「🔄 全プロバイダーの最新モデルを取得」で読み込まれます（例: google/gemma-4-31b-it:free）。無料版はモデルIDの末尾が「:free」です。
+                                    ※ 入力候補は「🔄 全プロバイダーの最新モデルを取得」で読み込まれます（例: google/gemma-4-31b-it:free）。無料版はモデルIDの末尾が「:free」です。<br>
+                                    ※ <code>@preset/&lt;名前&gt;</code> を入れると、OpenRouter の「プリセット」をモデルとして使えます（例: <code>@preset/argon-flex</code> ＝ Gemini 4 Argon の Flex 設定）。プリセットは OpenRouter で作成した、この API キーと同じアカウントのものだけが使えます。モデル選択の「追加モデル」にも並ぶので、普段はそちらから選べます。
                                 </p>
                             </div>
 

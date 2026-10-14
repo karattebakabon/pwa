@@ -77,9 +77,9 @@ describe('Gemini parameter-safety wiring', () => {
 
 describe('Gemini update version/cache wiring', () => {
     it('uses one new version across app, HTML cache-buster, service worker, and release note', () => {
-        expect(read('src/constants.js')).toContain("export const APP_VERSION = '1.25.68'");
-        expect(read('src/constants.js')).toContain("'1.68': [");
-        expect(read('index.html')).toContain('app.js?v=1.25.68');
-        expect(read('sw.js')).toContain("gemini-pwa-cache-v1.25.68");
+        expect(read('src/constants.js')).toContain("export const APP_VERSION = '1.25.69'");
+        expect(read('src/constants.js')).toContain("'1.69': [");
+        expect(read('index.html')).toContain('app.js?v=1.25.69');
+        expect(read('sw.js')).toContain("gemini-pwa-cache-v1.25.69");
     });
 });
