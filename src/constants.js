@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.71';
+export const APP_VERSION = '1.25.72';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -284,6 +284,10 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.72': [
+        'ダミープロンプト使用時に送信が失敗する問題の続きを修正しました。ダミーを会話の先頭に置いた際、設定の「順序を入れ替える」がオンだと先頭がAI側（model）ターンで始まり、Gemini系で応答が返らないことがあるためです。先頭は常に User から始まるよう固定しました（応答形式の例を示す用途は変わりません）。',
+        'エラー診断を強化しました。「API応答に有効な候補(candidates)が含まれていません」のときは、APIからの応答内容（プロバイダ側の失敗理由など）を添えて表示します。原因の特定が早くなります。',
+    ],
     '1.71': [
         '「ダミーUserプロンプト」「ダミーModelプロンプト」を使っていると、Gemini・OpenRouter で「Requests ending with a model turn are not supported.」（400）になり、新規チャットの1通目から送信できなくなる不具合を修正しました。ダミーの例を会話の末尾に追加していたため、履歴の最後がAI側（model）ターンになっていました。会話の先頭に置くよう変更しています（応答形式の例は冒頭で示すのが本来の使い方なので、ダミーの効き方は変わりません）。',
     ],

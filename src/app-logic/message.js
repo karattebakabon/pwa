@@ -1558,7 +1558,18 @@ export const messageMethods = {
                     throw new Error(`APIが応答をブロックしました (理由: ${blockReason})`);
                 }
                 if (!responseData.candidates || responseData.candidates.length === 0) {
-                    throw new Error("API応答に有効な候補(candidates)が含まれていません。プロンプトがブロックされた可能性があります。");
+                    // 診断用: 生レスポンスの要点を添える（「ブロックされた可能性」だけでは
+                    // プロバイダ側の失敗理由（error オブジェクト等）が見えず対処できないため）。
+                    let responseBrief = '';
+                    try {
+                        responseBrief = JSON.stringify(responseData).slice(0, 600);
+                    } catch (e) {
+                        responseBrief = '(応答の文字列化に失敗)';
+                    }
+                    throw new Error(
+                        "API応答に有効な候補(candidates)が含まれていません。プロンプトがブロックされた可能性があります。" +
+                            (responseBrief ? ` — 応答: ${responseBrief}` : '')
+                    );
                 }
                 
                 const candidate = responseData.candidates[0];

@@ -1892,7 +1892,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.71";
+  var APP_VERSION = "1.25.72";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2076,6 +2076,10 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.72": [
+      "ダミープロンプト使用時に送信が失敗する問題の続きを修正しました。ダミーを会話の先頭に置いた際、設定の「順序を入れ替える」がオンだと先頭がAI側（model）ターンで始まり、Gemini系で応答が返らないことがあるためです。先頭は常に User から始まるよう固定しました（応答形式の例を示す用途は変わりません）。",
+      "エラー診断を強化しました。「API応答に有効な候補(candidates)が含まれていません」のときは、APIからの応答内容（プロバイダ側の失敗理由など）を添えて表示します。原因の特定が早くなります。"
+    ],
     "1.71": [
       "「ダミーUserプロンプト」「ダミーModelプロンプト」を使っていると、Gemini・OpenRouter で「Requests ending with a model turn are not supported.」（400）になり、新規チャットの1通目から送信できなくなる不具合を修正しました。ダミーの例を会話の末尾に追加していたため、履歴の最後がAI側（model）ターンになっていました。会話の先頭に置くよう変更しています（応答形式の例は冒頭で示すのが本来の使い方なので、ダミーの効き方は変わりません）。"
     ],
@@ -10164,6 +10168,17 @@ AI: ${firstModelContent}`;
           throw error;
         }
         let openAIResponse = await response.json();
+        if (openAIResponse && openAIResponse.error && (!openAIResponse.choices || openAIResponse.choices.length === 0)) {
+          let msg = openAIResponse.error.message || "プロバイダが応答に失敗しました。";
+          const raw = openAIResponse.error.metadata?.raw;
+          if (typeof raw === "string" && raw.trim()) {
+            msg += ` — ${raw.trim().slice(0, 300)}`;
+          }
+          const providerError = new Error(`${cfg.label} プロバイダエラー: ${msg}`);
+          providerError.status = response.status;
+          providerError.data = openAIResponse;
+          throw providerError;
+        }
         if (requestBody.reasoning && isReasoningOnlyCompletion(openAIResponse)) {
           console.warn(
             `[${cfg.label}] 本文が空で思考のみが返りました。reasoning を外して再送します。`
@@ -12123,7 +12138,15 @@ ${knowledgeText}`;
             throw new Error(`APIが応答をブロックしました (理由: ${blockReason})`);
           }
           if (!responseData.candidates || responseData.candidates.length === 0) {
-            throw new Error("API応答に有効な候補(candidates)が含まれていません。プロンプトがブロックされた可能性があります。");
+            let responseBrief = "";
+            try {
+              responseBrief = JSON.stringify(responseData).slice(0, 600);
+            } catch (e) {
+              responseBrief = "(応答の文字列化に失敗)";
+            }
+            throw new Error(
+              "API応答に有効な候補(candidates)が含まれていません。プロンプトがブロックされた可能性があります。" + (responseBrief ? ` — 応答: ${responseBrief}` : "")
+            );
           }
           const candidate = responseData.candidates[0];
           const finishReasonError = getFinishReasonError(candidate);
@@ -12349,20 +12372,11 @@ ${summaryText}`,
       }
       if (state.settings.dummyEnabled) {
         const dummyMessages = [];
-        if (state.settings.reverseDummyOrder) {
-          if (state.settings.dummyModel) {
-            dummyMessages.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
-          }
-          if (state.settings.dummyUser) {
-            dummyMessages.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
-          }
-        } else {
-          if (state.settings.dummyUser) {
-            dummyMessages.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
-          }
-          if (state.settings.dummyModel) {
-            dummyMessages.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
-          }
+        if (state.settings.dummyUser) {
+          dummyMessages.push({ role: "user", content: state.settings.dummyUser, attachments: [] });
+        }
+        if (state.settings.dummyModel) {
+          dummyMessages.push({ role: "model", content: state.settings.dummyModel, attachments: [] });
         }
         historyToProcess.unshift(...dummyMessages);
       }

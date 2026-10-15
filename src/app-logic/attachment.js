@@ -81,28 +81,19 @@ export const attachmentMethods = {
             historyToProcess = messagesForApi;
         }
 
-        // ダミープロンプトは「会話の先頭」に挿入する（末尾に追加すると、通常順序の
-        // ダミーUser→ダミーModel では履歴の最後が model ターンになり、Gemini・OpenRouter が
-        // "Requests ending with a model turn are not supported." (400) で拒否するため）。
-        // ダミーは応答形式の例を示すものなので、会話の冒頭に置くのが本来の使い方。
+        // ダミープロンプトは「会話の先頭」に挿入する。会話形式の制約が2つあるため:
+        //  1. 末尾に置くと最後が model ターンになり "Requests ending with a model turn
+        //     are not supported." (400) になる（通常順序のダミーUser→ダミーModel が該当）
+        //  2. 先頭が model ターンで始まるのも Gemini 系では避ける（最初は user が安全）
+        // よって、順序設定（reverseDummyOrder）に関わらず常に「user → model」の順で
+        // 先頭に置く。応答形式の例を示すという用途はこの並びで満たせる。
         if (state.settings.dummyEnabled) {
             const dummyMessages = [];
-            if (state.settings.reverseDummyOrder) {
-                // 順序を入れ替える場合: ダミーModel → ダミーUser
-                if (state.settings.dummyModel) {
-                    dummyMessages.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
-                }
-                if (state.settings.dummyUser) {
-                    dummyMessages.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
-                }
-            } else {
-                // 通常の順序: ダミーUser → ダミーModel
-                if (state.settings.dummyUser) {
-                    dummyMessages.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
-                }
-                if (state.settings.dummyModel) {
-                    dummyMessages.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
-                }
+            if (state.settings.dummyUser) {
+                dummyMessages.push({ role: 'user', content: state.settings.dummyUser, attachments: [] });
+            }
+            if (state.settings.dummyModel) {
+                dummyMessages.push({ role: 'model', content: state.settings.dummyModel, attachments: [] });
             }
             historyToProcess.unshift(...dummyMessages);
         }

@@ -1149,6 +1149,27 @@ export const apiUtils = {
             // レスポンスを取得してGemini形式に変換
             let openAIResponse = await response.json();
 
+            // 200 OK でも、プロバイダ側の失敗が「error オブジェクトのみ・choices なし」で
+            // 返るケースがある（OpenRouter: "If the provider returns headers and then fails,
+            // you receive a 200 OK whose JSON body holds only an error object and no choices"）。
+            // このまま convert すると candidates が空になり「プロンプトがブロックされた可能性」
+            // という誤った案内になるため、ここで明確なエラーにして詳細を画面へ出す。
+            if (
+                openAIResponse &&
+                openAIResponse.error &&
+                (!openAIResponse.choices || openAIResponse.choices.length === 0)
+            ) {
+                let msg = openAIResponse.error.message || 'プロバイダが応答に失敗しました。';
+                const raw = openAIResponse.error.metadata?.raw;
+                if (typeof raw === 'string' && raw.trim()) {
+                    msg += ` — ${raw.trim().slice(0, 300)}`;
+                }
+                const providerError = new Error(`${cfg.label} プロバイダエラー: ${msg}`);
+                providerError.status = response.status;
+                providerError.data = openAIResponse;
+                throw providerError;
+            }
+
             // 保険: reasoning を付けたのに「思考だけ返って本文が空」だった場合は、
             // reasoning を外して1度だけ投げ直す。未知の非推論モデルでも本文が取れる
             // ようにするため（本文ゼロのままトークンだけ消費されるのを避ける）。

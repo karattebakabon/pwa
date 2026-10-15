@@ -68,5 +68,15 @@ describe('OpenRouter presets (@preset/<slug>)', () => {
         expect(attachment).not.toContain(
             "historyToProcess.push({ role: 'model', content: state.settings.dummyModel"
         );
+        // 先頭は常に user から始める（reverseDummyOrder で model 先頭にしない）
+        expect(attachment).not.toContain('if (state.settings.reverseDummyOrder)');
+    });
+
+    // プロバイダ失敗が「200 OK + error のみ + choices なし」で返るケースを検出して
+    // 詳細（metadata.raw など）を画面に出す（「ブロックされた可能性」の誤案内を防ぐ）。
+    it('detects a provider failure returned as 200 + error + no choices', () => {
+        const api = read('src/api.js');
+        expect(api).toContain('openAIResponse.error &&');
+        expect(api).toContain('プロバイダエラー:');
     });
 });
