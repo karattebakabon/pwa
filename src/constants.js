@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.74';
+export const APP_VERSION = '1.25.75';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -267,6 +267,15 @@ export const OPENCODE_MODELS = [
 ];
 export const DEFAULT_OPENCODE_MODEL = 'deepseek-v4-flash';
 
+// OpenCode Go の Gemini 系モデルは「Google ネイティブ リレー」専用。
+// /zen/go/v1（OpenAI 系リレー）は chat/completions / responses / messages の
+// いずれでも 400 ModelProtocolUnsupported（"Model does not support this protocol."）
+// を返すため、これらは Google の generateContent 形式で
+// https://opencode.ai/inference/go/google/v1beta へ送る
+// （ブラウザからは CORS 非対応のためプロキシの /google/* 中継経由）。
+// 認証は AI Studio と同じ x-goog-api-key、加えて x-opencode-session を付ける。
+export const OPENCODE_GOOGLE_MODELS = ['gemini-4-argon-contributor'];
+
 export const XAI_MODELS = [
     { value: 'grok-4.6', label: 'Grok 4.6 (推奨)' },
     { value: 'grok-4.5', label: 'Grok 4.5' },
@@ -292,6 +301,9 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.75': [
+        'OpenCode Go の「Gemini 4 Argon Contributor」を実際に使えるようにしました。このモデルは OpenCode の OpenAI 互換リレー（通常のチャットAPI）では「Model does not support this protocol.」（400）になり、Google ネイティブの専用リレー（generateContent 形式）にのみ応答します。Gemini 系モデルを選んだときだけ、自動でこの形式（x-goog-api-key 認証＋会話アフィニティ）に切り替えて送るようにし、プロキシもこの経路の中継に対応しています。',
+    ],
     '1.74': [
         'OpenCode Go の「Gemini 4 Argon Contributor」を選ぶと、名前が「gemini-」で始まるためにプロバイダが勝手に Gemini へ切り替わり、モデルも別のものになってしまう不具合を修正しました。モデルの選択肢に「選択元のプロバイダ」情報を必ず付けるようにし、名前の先頭だけで判定する旧ロジックは「標準 Gemini モデルの一覧に載っているとき」だけに限定しています。',
     ],

@@ -19,6 +19,7 @@ import {
     GROQ_MODELS,
     MISTRAL_MODELS,
     OPENAI_MODELS,
+    OPENCODE_GOOGLE_MODELS,
     OPENCODE_MODELS,
     RETIRED_MODEL_MAP,
     SAKANA_MODELS,
@@ -156,5 +157,19 @@ describe('OpenCode Go の Contributor モデル', () => {
         expect(lifecycle).toContain('option.dataset.provider = provider;');
         const app = readFileSync(resolve(process.cwd(), 'src/app.js'), 'utf8');
         expect(app).toContain('GEMINI_MODELS.some((m) => m.value === newModel)');
+    });
+
+    // Gemini 系（contributor）は OpenCode の OpenAI 互換リレーでは
+    // 400 ModelProtocolUnsupported になるため、Google ネイティブ リレー
+    // （generateContent 形式）へ切り替える配線を固定する。
+    it('gemini-4-argon-contributor は Google ネイティブ リレー経由で送る', () => {
+        expect(OPENCODE_GOOGLE_MODELS).toContain('gemini-4-argon-contributor');
+        const api = readFileSync(resolve(process.cwd(), 'src/api.js'), 'utf8');
+        expect(api).toContain('OPENCODE_GOOGLE_MODELS.includes(');
+        expect(api).toContain('{ opencodeRelay: true }');
+        expect(api).toContain('/google/v1beta/models/');
+        const worker = readFileSync(resolve(process.cwd(), 'worker/src/index.js'), 'utf8');
+        expect(worker).toContain("const GOOGLE_UPSTREAM_BASE = 'https://opencode.ai/inference/go/google';");
+        expect(worker).toContain('X-Goog-Api-Key');
     });
 });

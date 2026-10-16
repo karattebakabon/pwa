@@ -1,5 +1,5 @@
 // apiUtils（Phase 1 で app.js から抽出）。挙動は不変。
-import { DEEPSEEK_API_BASE_URL, DEFAULT_BEDROCK_MODEL, DEFAULT_BEDROCK_REGION, DEFAULT_MODEL, DEFAULT_OPENCODE_MODEL, DEFAULT_OPENCODE_PROXY_URL, DEFAULT_OPENROUTER_MODEL, DEFAULT_SAKANA_MODEL, DEFAULT_ZAI_MODEL, GEMINI_API_BASE_URL, GROQ_API_BASE_URL, INITIAL_RETRY_DELAY, MISTRAL_API_BASE_URL, OPENCODE_API_BASE_URL, OPENROUTER_API_BASE_URL, SAKANA_API_BASE_URL, XAI_API_BASE_URL, ZAI_API_BASE_URL, getAnthropicEffortLevels } from './constants.js';
+import { DEEPSEEK_API_BASE_URL, DEFAULT_BEDROCK_MODEL, DEFAULT_BEDROCK_REGION, DEFAULT_MODEL, DEFAULT_OPENCODE_MODEL, DEFAULT_OPENCODE_PROXY_URL, DEFAULT_OPENROUTER_MODEL, DEFAULT_SAKANA_MODEL, DEFAULT_ZAI_MODEL, GEMINI_API_BASE_URL, GROQ_API_BASE_URL, INITIAL_RETRY_DELAY, MISTRAL_API_BASE_URL, OPENCODE_API_BASE_URL, OPENCODE_GOOGLE_MODELS, OPENROUTER_API_BASE_URL, SAKANA_API_BASE_URL, XAI_API_BASE_URL, ZAI_API_BASE_URL, getAnthropicEffortLevels } from './constants.js';
 import { appLogic } from './app-logic.js';
 import { elements } from './dom-elements.js';
 import { interruptibleSleep } from './utils/format.js';
@@ -593,16 +593,22 @@ export const apiUtils = {
     },
 
     // Gemini APIを呼び出す
-    async callGeminiApi(messagesForApi, generationConfig, systemInstruction, tools = null, forceCalling = false, signal = null) {
+    // Gemini APIを呼び出す。
+    // opts.opencodeRelay = true のときは、OpenCode Go の Google ネイティブ リレー向けに送る:
+    // エンドポイント・APIキー・ヘッダーだけ差し替え、リクエスト/レスポンスの形式は
+    // AI Studio と同じ generateContent を使う（OpenCode が generateContent をそのまま話すため）。
+    async callGeminiApi(messagesForApi, generationConfig, systemInstruction, tools = null, forceCalling = false, signal = null, opts = {}) {
+        const opencodeRelay = opts.opencodeRelay === true;
         console.log(`[Debug] callGeminiApi: 現在の設定値を確認します。`, {
             forceFunctionCalling: state.settings.forceFunctionCalling,
             geminiEnableFunctionCalling: state.settings.geminiEnableFunctionCalling,
-            isForcedNow: forceCalling
+            isForcedNow: forceCalling,
+            opencodeRelay
         });
 
-        const apiKey = state.settings.apiKey;
+        const apiKey = opencodeRelay ? state.settings.opencodeApiKey : state.settings.apiKey;
         if (!apiKey) {
-            throw new Error("Gemini APIキーが設定されていません。");
+            throw new Error(opencodeRelay ? "OpenCode Go APIキーが設定されていません。" : "Gemini APIキーが設定されていません。");
         }
         
         // signalが渡されていない場合のみstate.abortControllerを作成
@@ -621,7 +627,11 @@ export const apiUtils = {
 
         const endpointMethod = 'generateContent?';
 
-        const endpoint = `${GEMINI_API_BASE_URL}${model}:${endpointMethod}key=${apiKey}`;
+        // OpenCode Go の Google リレーは CORS 非対応のためプロキシ経由で送る。
+        // パスは /google/v1beta/*、Worker が /inference/go/google/v1beta/* へ中継する。
+        const endpoint = opencodeRelay
+            ? `${(state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, '')}/google/v1beta/models/${model}:generateContent`
+            : `${GEMINI_API_BASE_URL}${model}:${endpointMethod}key=${apiKey}`;
         
         const finalGenerationConfig = { ...generationConfig };
         
@@ -700,9 +710,15 @@ export const apiUtils = {
             const timestamp = new Date().toLocaleTimeString();
             console.log(`[API_DEBUG ${timestamp}] Sending fetch request to Gemini API...`);
 
+            // OpenCode の中継では x-opencode-session（会話アフィニティ）も付ける。
+            const fetchHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+            if (opencodeRelay) {
+                Object.assign(fetchHeaders, getOpencodeSessionExtraHeaders());
+            }
+
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+                headers: fetchHeaders,
                 body: JSON.stringify(requestBody),
                 signal
             });
@@ -1861,6 +1877,13 @@ export const apiUtils = {
             case 'deepseek':
                 return await this.callOpenAICompatibleApi(state.settings.deepseekApiKey, DEEPSEEK_API_BASE_URL, 'DeepSeek', messagesForApi, generationConfig, systemInstruction, signal);
             case 'opencode':
+                // Gemini 系（Google ネイティブ リレー専用モデル）は、Google の
+                // generateContent 形式で /inference/go/google/v1beta に送る。
+                // /zen/go/v1 の OpenAI 系リレーはこれらに 400 ModelProtocolUnsupported
+                // （"Model does not support this protocol."）を返すため。
+                if (OPENCODE_GOOGLE_MODELS.includes(String(state.settings.modelName || '').toLowerCase())) {
+                    return await this.callGeminiApi(messagesForApi, generationConfig, systemInstruction, tools, forceCalling, signal, { opencodeRelay: true });
+                }
                 // OpenCode Go: OpenAI互換（chat/completions）。ツール（Function Calling）対応のため
                 // ツール対応アダプタを使用する。NovelAI画像生成等も利用可能。
                 // CORS非対応のためプロキシ経由（未設定なら上流直叩りを試みる）。

@@ -18,6 +18,12 @@
 //     （Hermes Agent の agent/opencode_affinity.py と同じ設計）
 
 const UPSTREAM_BASE = 'https://opencode.ai/zen/go/v1';
+// OpenCode Go の Gemini 系モデル（gemini-4-argon-contributor など）は、OpenAI 系リレーでは
+// 400 ModelProtocolUnsupported（"Model does not support this protocol."）になる。これらは
+// Google ネイティブのリレー（/inference/go/google/v1beta）が generateContent をそのまま話す。
+// PWA は /google/v1beta/* を呼び、Worker がこの接頭辞を付け替えて中継する。
+const GOOGLE_RELAY_PREFIX = '/google';
+const GOOGLE_UPSTREAM_BASE = 'https://opencode.ai/inference/go/google';
 
 // CORS 用の共通ヘッダー。ワイルドカード(*)は Authorization を使う場合に問題になるため、
 // リクエストの Origin をそのまま返す（個人利用のプロキシなので許容）。
@@ -26,7 +32,7 @@ function corsHeaders(request) {
     return {
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Access-Token, X-OpenCode-Session',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Access-Token, X-OpenCode-Session, X-Goog-Api-Key',
         'Access-Control-Max-Age': '86400',
     };
 }
@@ -47,8 +53,11 @@ export default {
             });
         }
 
-        // パスはそのまま上流へマップ (/models → /v1/models, /chat/completions → /v1/chat/completions)
-        const upstreamUrl = UPSTREAM_BASE + url.pathname;
+        // パス中継: /google/* は Google ネイティブ リレーへ、それ以外は従来どおり
+        // OpenAI 系リレーへマップする（/models → /v1/models など）。
+        const upstreamUrl = url.pathname.startsWith(`${GOOGLE_RELAY_PREFIX}/`)
+            ? GOOGLE_UPSTREAM_BASE + url.pathname.slice(GOOGLE_RELAY_PREFIX.length)
+            : UPSTREAM_BASE + url.pathname;
 
         // 共有トークン認証（X_ACCESS_TOKEN シークレット設定時のみ）
         const sharedToken = globalThis.X_ACCESS_TOKEN;
@@ -64,7 +73,7 @@ export default {
 
         // 上流へ中継（Authorization を含めヘッダーをそのまま転送）
         const upstreamHeaders = new Headers();
-        for (const name of ['Authorization', 'Content-Type', 'Accept', 'X-OpenCode-Session']) {
+        for (const name of ['Authorization', 'Content-Type', 'Accept', 'X-OpenCode-Session', 'X-Goog-Api-Key']) {
             const v = request.headers.get(name);
             if (v) upstreamHeaders.set(name, v);
         }
