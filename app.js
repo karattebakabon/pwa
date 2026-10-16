@@ -1892,7 +1892,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.74";
+  var APP_VERSION = "1.25.75";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2063,6 +2063,7 @@ ${relationship_context}`;
     }
   ];
   var DEFAULT_OPENCODE_MODEL = "deepseek-v4-flash";
+  var OPENCODE_GOOGLE_MODELS = ["gemini-4-argon-contributor"];
   var XAI_MODELS = [
     { value: "grok-4.6", label: "Grok 4.6 (推奨)" },
     { value: "grok-4.5", label: "Grok 4.5" },
@@ -2084,6 +2085,9 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.75": [
+      "OpenCode Go の「Gemini 4 Argon Contributor」を実際に使えるようにしました。このモデルは OpenCode の OpenAI 互換リレー（通常のチャットAPI）では「Model does not support this protocol.」（400）になり、Google ネイティブの専用リレー（generateContent 形式）にのみ応答します。Gemini 系モデルを選んだときだけ、自動でこの形式（x-goog-api-key 認証＋会話アフィニティ）に切り替えて送るようにし、プロキシもこの経路の中継に対応しています。"
+    ],
     "1.74": [
       "OpenCode Go の「Gemini 4 Argon Contributor」を選ぶと、名前が「gemini-」で始まるためにプロバイダが勝手に Gemini へ切り替わり、モデルも別のものになってしまう不具合を修正しました。モデルの選択肢に「選択元のプロバイダ」情報を必ず付けるようにし、名前の先頭だけで判定する旧ロジックは「標準 Gemini モデルの一覧に載っているとき」だけに限定しています。"
     ],
@@ -9745,15 +9749,21 @@ AI: ${firstModelContent}`;
       return bedrockTools;
     },
     // Gemini APIを呼び出す
-    async callGeminiApi(messagesForApi, generationConfig, systemInstruction, tools = null, forceCalling = false, signal = null) {
+    // Gemini APIを呼び出す。
+    // opts.opencodeRelay = true のときは、OpenCode Go の Google ネイティブ リレー向けに送る:
+    // エンドポイント・APIキー・ヘッダーだけ差し替え、リクエスト/レスポンスの形式は
+    // AI Studio と同じ generateContent を使う（OpenCode が generateContent をそのまま話すため）。
+    async callGeminiApi(messagesForApi, generationConfig, systemInstruction, tools = null, forceCalling = false, signal = null, opts = {}) {
+      const opencodeRelay = opts.opencodeRelay === true;
       console.log(`[Debug] callGeminiApi: 現在の設定値を確認します。`, {
         forceFunctionCalling: state.settings.forceFunctionCalling,
         geminiEnableFunctionCalling: state.settings.geminiEnableFunctionCalling,
-        isForcedNow: forceCalling
+        isForcedNow: forceCalling,
+        opencodeRelay
       });
-      const apiKey = state.settings.apiKey;
+      const apiKey = opencodeRelay ? state.settings.opencodeApiKey : state.settings.apiKey;
       if (!apiKey) {
-        throw new Error("Gemini APIキーが設定されていません。");
+        throw new Error(opencodeRelay ? "OpenCode Go APIキーが設定されていません。" : "Gemini APIキーが設定されていません。");
       }
       if (!signal) {
         state.abortController = new AbortController();
@@ -9765,7 +9775,7 @@ AI: ${firstModelContent}`;
       }
       const isImageGenModel = isImageGenerationModel(model);
       const endpointMethod = "generateContent?";
-      const endpoint = `${GEMINI_API_BASE_URL}${model}:${endpointMethod}key=${apiKey}`;
+      const endpoint = opencodeRelay ? `${(state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, "")}/google/v1beta/models/${model}:generateContent` : `${GEMINI_API_BASE_URL}${model}:${endpointMethod}key=${apiKey}`;
       const finalGenerationConfig = { ...generationConfig };
       if (isImageGenModel) {
         finalGenerationConfig.responseModalities = ["IMAGE", "TEXT"];
@@ -9824,9 +9834,13 @@ AI: ${firstModelContent}`;
       try {
         const timestamp = (/* @__PURE__ */ new Date()).toLocaleTimeString();
         console.log(`[API_DEBUG ${timestamp}] Sending fetch request to Gemini API...`);
+        const fetchHeaders = { "Content-Type": "application/json", "x-goog-api-key": apiKey };
+        if (opencodeRelay) {
+          Object.assign(fetchHeaders, getOpencodeSessionExtraHeaders());
+        }
         const response = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+          headers: fetchHeaders,
           body: JSON.stringify(requestBody),
           signal
         });
@@ -10778,6 +10792,9 @@ ${knowledgeText}`;
         case "deepseek":
           return await this.callOpenAICompatibleApi(state.settings.deepseekApiKey, DEEPSEEK_API_BASE_URL, "DeepSeek", messagesForApi, generationConfig, systemInstruction, signal);
         case "opencode":
+          if (OPENCODE_GOOGLE_MODELS.includes(String(state.settings.modelName || "").toLowerCase())) {
+            return await this.callGeminiApi(messagesForApi, generationConfig, systemInstruction, tools, forceCalling, signal, { opencodeRelay: true });
+          }
           return await this._callOpenAICompatibleWithTools({
             label: "OpenCode Go",
             baseUrl: (state.settings.opencodeProxyUrl || DEFAULT_OPENCODE_PROXY_URL).replace(/\/+$/, "") + "/chat/completions",
