@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.72';
+export const APP_VERSION = '1.25.73';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -256,6 +256,14 @@ export const OPENCODE_MODELS = [
     { value: 'glm-5.3-flash', label: 'GLM 5.3 Flash' },
     { value: 'kimi-k2.7-code', label: 'Kimi K2.7 Code' },
     { value: 'grok-4.6', label: 'Grok 4.6' },
+    // Contributor モデル（OpenCode Go）: プロンプトと応答がプロバイダの学習に
+    // 使われる代わりに低コストで使える枠。機密・個人情報には使わないこと。
+    // 標準モデル（suffix なし）を使うと学習されない。
+    {
+        value: 'gemini-4-argon-contributor',
+        label: 'Gemini 4 Argon Contributor',
+        group: '⚠️ Contributor（プロンプトが学習に使われます）',
+    },
 ];
 export const DEFAULT_OPENCODE_MODEL = 'deepseek-v4-flash';
 
@@ -284,6 +292,9 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.73': [
+        'OpenCode Go の「Gemini 4 Argon Contributor」をモデル選択に追加しました（⚠️ Contributor グループ）。Contributor モデルは、入力したプロンプトと応答がプロバイダの学習に使われる代わりに低コストで利用できる枠です。機密情報・個人情報・プライベートな内容には使わないでください（学習されたくない内容には通常モデルをお使いください）。',
+    ],
     '1.72': [
         'ダミープロンプト使用時に送信が失敗する問題の続きを修正しました。ダミーを会話の先頭に置いた際、設定の「順序を入れ替える」がオンだと先頭がAI側（model）ターンで始まり、Gemini系で応答が返らないことがあるためです。先頭は常に User から始まるよう固定しました（応答形式の例を示す用途は変わりません）。',
         'エラー診断を強化しました。「API応答に有効な候補(candidates)が含まれていません」のときは、APIからの応答内容（プロバイダ側の失敗理由など）を添えて表示します。原因の特定が早くなります。',

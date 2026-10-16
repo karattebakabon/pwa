@@ -19,6 +19,7 @@ import {
     GROQ_MODELS,
     MISTRAL_MODELS,
     OPENAI_MODELS,
+    OPENCODE_MODELS,
     RETIRED_MODEL_MAP,
     SAKANA_MODELS,
     XAI_MODELS,
@@ -136,5 +137,17 @@ describe('RETIRED_MODEL_MAP の後継が有効', () => {
             .filter(([oldModel, successor]) => oldModel === successor)
             .map(([oldModel]) => oldModel);
         expect(selfRef).toEqual([]);
+    });
+});
+
+// Contributor モデルは「プロンプトが学習に使われる」枠。追加時は必ず警告グループを
+// 付けて、ユーザーが通常モデルと区別できるようにする（学習に使われては困る内容を
+// うっかり送ってしまう事故を防ぐ）。
+describe('OpenCode Go の Contributor モデル', () => {
+    it('gemini-4-argon-contributor が学習利用の警告グループ付きで選択肢にある', () => {
+        const entry = OPENCODE_MODELS.find((m) => m.value === 'gemini-4-argon-contributor');
+        expect(entry).toBeTruthy();
+        expect(entry.group).toContain('Contributor');
+        expect(entry.group).toContain('学習');
     });
 });
