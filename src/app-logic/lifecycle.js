@@ -483,6 +483,9 @@ export const lifecycleMethods = {
         const groups = {};
 
         models.forEach((model) => {
+            // dataset.provider を必ず付ける。モデル名が "gemini-" で始まる他プロバイダの
+            // モデル（例: OpenCode Go の gemini-4-argon-contributor）を、名前の先頭だけで
+            // Gemini プロバイダと誤判定して切り替えてしまう事故を防ぐ。
             if (model.group) {
                 // グループ化されたモデル
                 if (!groups[model.group]) {
@@ -494,12 +497,14 @@ export const lifecycleMethods = {
                 const option = document.createElement('option');
                 option.value = model.value;
                 option.textContent = model.label;
+                option.dataset.provider = provider;
                 groups[model.group].appendChild(option);
             } else {
                 // 通常のモデル
                 const option = document.createElement('option');
                 option.value = model.value;
                 option.textContent = model.label;
+                option.dataset.provider = provider;
                 modelSelect.appendChild(option);
             }
         });

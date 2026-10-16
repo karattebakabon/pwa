@@ -147,7 +147,7 @@ export function registerServiceWorker() {
 // --- IndexedDBユーティリティ (dbUtils) ---
 import { dbUtils } from './db.js';
 import { getOpencodeSessionFetchInit } from './api.js';
-import { OPENROUTER_PRESETS } from './constants.js';
+import { GEMINI_MODELS, OPENROUTER_PRESETS } from './constants.js';
 
 // --- UIユーティリティ (uiUtils) ---
 
@@ -270,8 +270,10 @@ window.dbUtils = dbUtils;
                             }
                         }
                     }
-                } else if (newModel.startsWith('gemini-')) {
+                } else if (newModel.startsWith('gemini-') && GEMINI_MODELS.some((m) => m.value === newModel)) {
                     // Fallback for standard Gemini models
+                    // （名前が gemini- で始まるだけの他プロバイダモデルを Gemini と
+                    //   誤判定しないよう、標準一覧に載っているものだけを対象にする）
                     const apiProvSelect = document.getElementById('api-provider');
                     if (apiProvSelect && window.state.settings.apiProvider !== 'gemini') {
                         window.state.settings.apiProvider = 'gemini';
@@ -1105,7 +1107,10 @@ window.dbUtils = dbUtils;
                 let provider = null;
                 if (selectedOpt && selectedOpt.dataset.provider) {
                     provider = selectedOpt.dataset.provider;
-                } else if (newModel.startsWith('gemini-')) {
+                } else if (newModel.startsWith('gemini-') && GEMINI_MODELS.some((m) => m.value === newModel)) {
+                    // 名前が gemini- で始まるだけの他プロバイダモデル（例: opencode の
+                    // gemini-4-argon-contributor）を Gemini と誤判定しないよう、
+                    // 標準 Gemini モデルの一覧に載っているものだけを対象にする。
                     provider = 'gemini';
                 }
 

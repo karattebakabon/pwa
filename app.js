@@ -1892,7 +1892,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.73";
+  var APP_VERSION = "1.25.74";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2084,6 +2084,9 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.74": [
+      "OpenCode Go の「Gemini 4 Argon Contributor」を選ぶと、名前が「gemini-」で始まるためにプロバイダが勝手に Gemini へ切り替わり、モデルも別のものになってしまう不具合を修正しました。モデルの選択肢に「選択元のプロバイダ」情報を必ず付けるようにし、名前の先頭だけで判定する旧ロジックは「標準 Gemini モデルの一覧に載っているとき」だけに限定しています。"
+    ],
     "1.73": [
       "OpenCode Go の「Gemini 4 Argon Contributor」をモデル選択に追加しました（⚠️ Contributor グループ）。Contributor モデルは、入力したプロンプトと応答がプロバイダの学習に使われる代わりに低コストで利用できる枠です。機密情報・個人情報・プライベートな内容には使わないでください（学習されたくない内容には通常モデルをお使いください）。"
     ],
@@ -5632,11 +5635,13 @@ Reason: [NGの場合の理由]`,
           const option = document.createElement("option");
           option.value = model2.value;
           option.textContent = model2.label;
+          option.dataset.provider = provider;
           groups[model2.group].appendChild(option);
         } else {
           const option = document.createElement("option");
           option.value = model2.value;
           option.textContent = model2.label;
+          option.dataset.provider = provider;
           modelSelect.appendChild(option);
         }
       });
@@ -15567,7 +15572,7 @@ ${summaryText}` : summaryText;
                 }
               }
             }
-          } else if (newModel.startsWith("gemini-")) {
+          } else if (newModel.startsWith("gemini-") && GEMINI_MODELS.some((m) => m.value === newModel)) {
             const apiProvSelect = document.getElementById("api-provider");
             if (apiProvSelect && window.state.settings.apiProvider !== "gemini") {
               window.state.settings.apiProvider = "gemini";
@@ -16310,7 +16315,7 @@ ${pageText}
           let provider = null;
           if (selectedOpt && selectedOpt.dataset.provider) {
             provider = selectedOpt.dataset.provider;
-          } else if (newModel.startsWith("gemini-")) {
+          } else if (newModel.startsWith("gemini-") && GEMINI_MODELS.some((m) => m.value === newModel)) {
             provider = "gemini";
           }
           if (provider && state.settings.apiProvider !== provider) {

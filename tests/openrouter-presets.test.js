@@ -21,7 +21,7 @@ describe('OpenRouter presets (@preset/<slug>)', () => {
 
     it('surfaces presets in the custom-model dropdown (header model select mirrors it)', () => {
         const app = read('src/app.js');
-        expect(app).toContain("import { OPENROUTER_PRESETS } from './constants.js'");
+        expect(app).toContain("import { GEMINI_MODELS, OPENROUTER_PRESETS } from './constants.js'");
         expect(app).toContain('OPENROUTER_PRESETS.forEach');
         expect(app).toContain("opt.dataset.provider = 'openrouter'");
         expect(app).toContain("opt.dataset.userDefined = 'true'");

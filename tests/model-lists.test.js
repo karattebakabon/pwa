@@ -150,4 +150,11 @@ describe('OpenCode Go の Contributor モデル', () => {
         expect(entry.group).toContain('Contributor');
         expect(entry.group).toContain('学習');
     });
+
+    it('標準モデルの選択肢には選択元プロバイダが付く（gemini- 前置きの誤判定防止）', () => {
+        const lifecycle = readFileSync(resolve(process.cwd(), 'src/app-logic/lifecycle.js'), 'utf8');
+        expect(lifecycle).toContain('option.dataset.provider = provider;');
+        const app = readFileSync(resolve(process.cwd(), 'src/app.js'), 'utf8');
+        expect(app).toContain('GEMINI_MODELS.some((m) => m.value === newModel)');
+    });
 });
