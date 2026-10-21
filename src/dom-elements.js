@@ -37,6 +37,13 @@ try {
         openrouterModelInput: document.getElementById('openrouter-model-input'),
         openrouterModelInputContainer: document.getElementById('openrouter-model-input-container'),
         openrouterModelList: document.getElementById('openrouter-model-list'),
+        // OpenRouter のプロバイダー設定（リクエストの provider オブジェクト）
+        openrouterProviderPrefsTextarea: document.getElementById('openrouter-provider-prefs'),
+        openrouterProviderPrefsEnabledToggle: document.getElementById('openrouter-provider-prefs-enabled-toggle'),
+        openrouterProviderPrefsStatus: document.getElementById('openrouter-provider-prefs-status'),
+        openrouterPrefsPresetQualityBtn: document.getElementById('openrouter-prefs-preset-quality'),
+        openrouterPrefsPresetOrderBtn: document.getElementById('openrouter-prefs-preset-order'),
+        openrouterPrefsPresetClearBtn: document.getElementById('openrouter-prefs-preset-clear'),
         bedrockAccessKeyInput: document.getElementById('bedrock-access-key'),
         bedrockSecretKeyInput: document.getElementById('bedrock-secret-key'),
         bedrockRegionSelect: document.getElementById('bedrock-region'),

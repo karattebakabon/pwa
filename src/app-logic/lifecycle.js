@@ -1,5 +1,6 @@
 // appLogic 機能モジュール: lifecycle（Phase 3 で app-logic.js から分割）。挙動は不変。
 import { registerServiceWorker, setupBroadcastChannel, updateMessageMaxWidthVar } from '../app.js';
+import { parseOpenRouterProviderPrefs } from '../utils/openrouter-provider.js';
 import {
     ANTHROPIC_MODELS,
     APP_VERSION,
@@ -297,6 +298,48 @@ export const lifecycleMethods = {
             usageContainer.classList.remove('hidden');
         } else {
             usageContainer.classList.add('hidden');
+        }
+    },
+
+    // OpenRouter のプロバイダー設定（JSON）の検証結果を設定画面に出す。
+    // 不正な JSON でも保存自体はできる（打っている途中を弾かないため）が、
+    // 送信時は「送らない」側に倒れるので、今の内容で実際に何が送られるかを常に見せる。
+    updateOpenRouterProviderPrefsUI() {
+        const textarea = elements.openrouterProviderPrefsTextarea;
+        const statusEl = elements.openrouterProviderPrefsStatus;
+        const toggle = elements.openrouterProviderPrefsEnabledToggle;
+
+        if (textarea && toggle) {
+            textarea.disabled = !toggle.checked;
+        }
+        if (!statusEl) return;
+
+        if (toggle && !toggle.checked) {
+            statusEl.textContent = '送信しません（チェックが外れています）。';
+            statusEl.style.color = 'var(--text-secondary)';
+            return;
+        }
+
+        const parsed = parseOpenRouterProviderPrefs(textarea ? textarea.value : '');
+        if (!parsed.ok) {
+            statusEl.textContent = `⚠ この設定は送信されません: ${parsed.error}`;
+            statusEl.style.color = '#e05252';
+            return;
+        }
+        if (parsed.empty) {
+            statusEl.textContent =
+                '空欄のため、プロバイダー設定は送りません（OpenRouter の既定ルーティング）。';
+            statusEl.style.color = 'var(--text-secondary)';
+            return;
+        }
+
+        const summary = `送信する内容: ${JSON.stringify(parsed.value)}`;
+        if (parsed.warnings.length > 0) {
+            statusEl.textContent = `✅ ${summary}\n※ ${parsed.warnings.join('\n※ ')}`;
+            statusEl.style.color = '#c99700';
+        } else {
+            statusEl.textContent = `✅ ${summary}`;
+            statusEl.style.color = 'var(--text-secondary)';
         }
     },
 
@@ -1334,6 +1377,17 @@ export const lifecycleMethods = {
             sakanaApiKey: { element: elements.sakanaApiKeyInput, event: 'input' },
             opencodeApiKey: { element: elements.opencodeApiKeyInput, event: 'input' },
             opencodeProxyUrl: { element: elements.opencodeProxyUrlInput, event: 'input' },
+            // OpenRouter のプロバイダー設定（JSON）。入力中は弾かず、確定（change）で保存する。
+            openrouterProviderPrefs: {
+                element: elements.openrouterProviderPrefsTextarea,
+                event: 'change',
+                onUpdate: () => this.updateOpenRouterProviderPrefsUI(),
+            },
+            openrouterProviderPrefsEnabled: {
+                element: elements.openrouterProviderPrefsEnabledToggle,
+                event: 'change',
+                onUpdate: () => this.updateOpenRouterProviderPrefsUI(),
+            },
             modelName: {
                 element: elements.modelNameSelect,
                 event: 'change',

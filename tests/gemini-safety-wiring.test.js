@@ -76,10 +76,17 @@ describe('Gemini parameter-safety wiring', () => {
 });
 
 describe('Gemini update version/cache wiring', () => {
+    // バージョン番号を直書きすると更新のたびにテストを書き換えることになり、
+    // 「1か所だけ上げ忘れた」を検出できなくなる。constants.js の APP_VERSION を
+    // 唯一の出所として、3点セット（app.js?v= / CACHE_NAME / 更新履歴キー）が
+    // 一致していることを検証する。
     it('uses one new version across app, HTML cache-buster, service worker, and release note', () => {
-        expect(read('src/constants.js')).toContain("export const APP_VERSION = '1.25.75'");
-        expect(read('src/constants.js')).toContain("'1.75': [");
-        expect(read('index.html')).toContain('app.js?v=1.25.75');
-        expect(read('sw.js')).toContain("gemini-pwa-cache-v1.25.75");
+        const version = (read('src/constants.js').match(/APP_VERSION = '([^']+)'/) || [])[1];
+        expect(version).toBeTruthy();
+        const patch = version.split('.').pop();
+        expect(read('index.html')).toContain(`app.js?v=${version}`);
+        expect(read('sw.js')).toContain(`gemini-pwa-cache-v${version}`);
+        // 更新履歴のキーは「1.<通し番号>」形式（フォーク側で変換して表示する）
+        expect(read('src/constants.js')).toContain(`'1.${patch}': [`);
     });
 });

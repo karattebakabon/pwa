@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.75';
+export const APP_VERSION = '1.25.76';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -301,6 +301,12 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
+    '1.76': [
+        'OpenRouter の「プロバイダー設定」を追加しました。リクエストの provider に、優先する提供元（order）、許可・除外する提供元（only / ignore）、量子化レベル（quantizations）などを指定できます。同じモデルでも提供元によって量子化が違い（fp8 / fp4 / int4 など）、粗い量子化の提供元に当たると出力品質が揺れるためです。設定は「設定 → OpenRouter」の「プロバイダー設定 (JSON)」に書きます。',
+        '既定では「品質優先」（fp4 以下の量子化を除外し、deepseek / novita / deepinfra を優先）を入れてあります。チェックを外せば送信を止められ、ボタン1つで「順序のみ」「空にする」に切り替えられます。',
+        '⚠ quantizations / only / ignore / require_parameters は「絞り込み」です。条件に合う提供元が1つも無いモデルでは 404（No endpoints found matching your provider preferences）になります。そのときは「順序のみ」に切り替えるか、チェックを外してください（エラーメッセージにも案内を出します）。order は優先順なので、他の提供元へもフォールバックします。order / sort を指定すると OpenRouter の価格ベース負荷分散は無効になります。',
+        '本文生成だけでなく、タイトル自動生成・要約/メモリ学習にも同じ設定が適用されます（補助生成だけ粗い量子化の提供元に当たるのを防ぐため）。JSON が壊れているときは警告を表示し、その設定は送らずにリクエストは通常どおり実行します。',
+    ],
     '1.75': [
         'OpenCode Go の「Gemini 4 Argon Contributor」を実際に使えるようにしました。このモデルは OpenCode の OpenAI 互換リレー（通常のチャットAPI）では「Model does not support this protocol.」（400）になり、Google ネイティブの専用リレー（generateContent 形式）にのみ応答します。Gemini 系モデルを選んだときだけ、自動でこの形式（x-goog-api-key 認証＋会話アフィニティ）に切り替えて送るようにし、プロキシもこの経路の中継に対応しています。',
     ],

@@ -306,6 +306,7 @@ export const profileMethods = {
             'apiKey',
             'zaiApiKey',
             'openrouterApiKey',
+            'openrouterProviderPrefs',
             'bedrockAccessKey',
             'bedrockSecretKey',
             'bedrockRegion',
@@ -369,6 +370,7 @@ export const profileMethods = {
             'autoScroll',
             'enableWideMode',
             'enableSummaryButton',
+            'openrouterProviderPrefsEnabled',
         ];
 
         settings.systemPrompt = elements.systemPromptDefaultTextarea.value.trim();

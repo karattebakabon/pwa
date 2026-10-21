@@ -13,6 +13,7 @@ import {
 } from '../constants.js';
 import { dbUtils } from '../db.js';
 import { elements } from '../dom-elements.js';
+import { buildOpenRouterProviderField } from '../utils/openrouter-provider.js';
 import { state } from '../state.js';
 import { uiUtils } from '../ui.js';
 import { isRetiredModelError, resolveRetiredModel } from './retired-model.js';
@@ -107,6 +108,9 @@ async function runAuxiliaryCompletion({
             ],
             temperature,
             max_tokens: maxTokens,
+            // OpenRouter のときは本文生成と同じプロバイダー設定を送る
+            // （要約だけ粗い量子化の提供元に当たって品質が落ちるのを防ぐ）
+            ...(provider === 'openrouter' ? buildOpenRouterProviderField(state.settings) : {}),
         };
         parse = (d) => d.choices?.[0]?.message?.content;
     }

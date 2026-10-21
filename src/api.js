@@ -11,6 +11,14 @@ import { getGeminiSafetySettings } from './utils/safety.js';
 import { state } from './state.js';
 import { uiUtils } from './ui.js';
 import { OPENCODE_SESSION_HEADER, OPENCODE_SESSION_STORAGE_KEY } from './constants.js';
+import { buildOpenRouterProviderField } from './utils/openrouter-provider.js';
+
+// OpenRouter のプロバイダー設定（リクエストボディの provider オブジェクト）を
+// 設定値から組み立てる。OFF / 空欄 / 不正な JSON のときは null（＝provider を送らない）。
+// 不正な値でリクエストごと失敗させたくないので、送らない側に倒す（設定画面が警告を出す）。
+function getOpenRouterProviderPrefs() {
+    return buildOpenRouterProviderField(state.settings).provider || null;
+}
 
 // systemInstruction（文字列 / Geminiパーツ形式）からプレーンテキストを取り出すヘルパー
 function extractSystemText(systemInstruction) {
@@ -961,6 +969,18 @@ export const apiUtils = {
             messages: openAIMessages
         };
 
+        // プロバイダー設定（OpenRouter のみ）。cfg.getProviderPrefs() が値を返したときだけ送る。
+        // OpenAI 互換の他プロバイダーは未知のキーで 400 になる場合があるため送らない。
+        if (typeof cfg.getProviderPrefs === 'function') {
+            const providerPrefs = cfg.getProviderPrefs();
+            if (providerPrefs) {
+                requestBody.provider = providerPrefs;
+                console.log(
+                    `[${cfg.label}] プロバイダー設定を送信します: ${JSON.stringify(providerPrefs)}`
+                );
+            }
+        }
+
         // 生成パラメータの変換
         if (generationConfig) {
             if (generationConfig.temperature !== undefined) {
@@ -1148,6 +1168,16 @@ export const apiUtils = {
                         }
                     } else if (errorData.message) {
                         errorMsg = `APIエラー (${response.status}): ${errorData.message}`;
+                    }
+                    // provider 設定（絞り込み）が効きすぎて提供元が無くなったときの案内。
+                    // 例: quantizations / only を指定したモデルに該当エンドポイントが無い。
+                    if (
+                        response.status === 404 &&
+                        typeof cfg.getProviderPrefs === 'function' &&
+                        cfg.getProviderPrefs()
+                    ) {
+                        errorMsg +=
+                            ' — 設定の「OpenRouter プロバイダー設定」が条件に合う提供元を見つけられませんでした。quantizations / only / require_parameters は絞り込みなので、値を広げるかチェックを外してください。';
                     }
                 } catch (e) {
                     console.error("APIエラーレスポンスボディのパース失敗:", e);
@@ -1861,6 +1891,8 @@ export const apiUtils = {
                     getApiKey: () => state.settings.openrouterApiKey,
                     missingKeyMessage: 'OpenRouter APIキーが設定されていません。',
                     extraHeaders: () => ({ 'HTTP-Referer': window.location.origin, 'X-Title': 'PWA-lily' }),
+                    // 提供元の指定（order / only / quantizations 等）。設定画面のJSONから組み立てる。
+                    getProviderPrefs: getOpenRouterProviderPrefs,
                     supportsReasoning: true,
                     // Gemini 系（@preset 経由を含む）は reasoning_details を履歴で戻す必要がある
                     passthroughReasoningDetails: true,

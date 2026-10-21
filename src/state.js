@@ -1,5 +1,9 @@
 // アプリの実行時状態（Phase 1 で app.js から抽出）。構造・初期値は不変。
 import { DEFAULT_MODEL, DEFAULT_BEDROCK_REGION, DEFAULT_OPENCODE_PROXY_URL } from './constants.js';
+import {
+    DEFAULT_OPENROUTER_PROVIDER_PREFS,
+    DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED,
+} from './utils/openrouter-provider.js';
 
 export const state = {
     tabId: `tab_${Date.now()}_${Math.random()}`, // このタブを識別するユニークID
@@ -21,6 +25,11 @@ export const state = {
         apiKey: '',
         zaiApiKey: '',
         openrouterApiKey: '',
+        // OpenRouter のプロバイダー設定（リクエストボディの provider オブジェクト）。
+        // 既定は「品質優先」（fp4 以下の量子化を除外＋信頼できる提供元を優先）。
+        // 設定画面のチェックボックスで送信を止められる（テキストは残る）。
+        openrouterProviderPrefs: DEFAULT_OPENROUTER_PROVIDER_PREFS,
+        openrouterProviderPrefsEnabled: DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED,
         bedrockAccessKey: '',
         bedrockSecretKey: '',
         bedrockRegion: DEFAULT_BEDROCK_REGION,

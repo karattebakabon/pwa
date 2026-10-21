@@ -16,6 +16,7 @@ import {
 } from '../constants.js';
 import { dbUtils } from '../db.js';
 import { elements } from '../dom-elements.js';
+import { buildOpenRouterProviderField } from '../utils/openrouter-provider.js';
 import { state } from '../state.js';
 import { uiUtils } from '../ui.js';
 import { getGeminiSafetySettings } from '../utils/safety.js';
@@ -977,6 +978,11 @@ export const chatMethods = {
                         model: titleModel,
                         max_tokens: 200,
                         messages: [{ role: 'user', content: titlePrompt }],
+                        // OpenRouter のときはプロバイダー設定（order / quantizations 等）を
+                        // 本文生成と同じ条件で送る（タイトルだけ粗い量子化の提供元に当たるのを防ぐ）
+                        ...(provider === 'openrouter'
+                            ? buildOpenRouterProviderField(state.settings)
+                            : {}),
                     }),
                 });
                 if (resp.ok) {

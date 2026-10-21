@@ -1599,6 +1599,13 @@ ${relationship_context}`;
       openrouterModelInput: document.getElementById("openrouter-model-input"),
       openrouterModelInputContainer: document.getElementById("openrouter-model-input-container"),
       openrouterModelList: document.getElementById("openrouter-model-list"),
+      // OpenRouter のプロバイダー設定（リクエストの provider オブジェクト）
+      openrouterProviderPrefsTextarea: document.getElementById("openrouter-provider-prefs"),
+      openrouterProviderPrefsEnabledToggle: document.getElementById("openrouter-provider-prefs-enabled-toggle"),
+      openrouterProviderPrefsStatus: document.getElementById("openrouter-provider-prefs-status"),
+      openrouterPrefsPresetQualityBtn: document.getElementById("openrouter-prefs-preset-quality"),
+      openrouterPrefsPresetOrderBtn: document.getElementById("openrouter-prefs-preset-order"),
+      openrouterPrefsPresetClearBtn: document.getElementById("openrouter-prefs-preset-clear"),
       bedrockAccessKeyInput: document.getElementById("bedrock-access-key"),
       bedrockSecretKeyInput: document.getElementById("bedrock-secret-key"),
       bedrockRegionSelect: document.getElementById("bedrock-region"),
@@ -1892,7 +1899,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.75";
+  var APP_VERSION = "1.25.76";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2085,6 +2092,12 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.76": [
+      "OpenRouter の「プロバイダー設定」を追加しました。リクエストの provider に、優先する提供元（order）、許可・除外する提供元（only / ignore）、量子化レベル（quantizations）などを指定できます。同じモデルでも提供元によって量子化が違い（fp8 / fp4 / int4 など）、粗い量子化の提供元に当たると出力品質が揺れるためです。設定は「設定 → OpenRouter」の「プロバイダー設定 (JSON)」に書きます。",
+      "既定では「品質優先」（fp4 以下の量子化を除外し、deepseek / novita / deepinfra を優先）を入れてあります。チェックを外せば送信を止められ、ボタン1つで「順序のみ」「空にする」に切り替えられます。",
+      "⚠ quantizations / only / ignore / require_parameters は「絞り込み」です。条件に合う提供元が1つも無いモデルでは 404（No endpoints found matching your provider preferences）になります。そのときは「順序のみ」に切り替えるか、チェックを外してください（エラーメッセージにも案内を出します）。order は優先順なので、他の提供元へもフォールバックします。order / sort を指定すると OpenRouter の価格ベース負荷分散は無効になります。",
+      "本文生成だけでなく、タイトル自動生成・要約/メモリ学習にも同じ設定が適用されます（補助生成だけ粗い量子化の提供元に当たるのを防ぐため）。JSON が壊れているときは警告を表示し、その設定は送らずにリクエストは通常どおり実行します。"
+    ],
     "1.75": [
       "OpenCode Go の「Gemini 4 Argon Contributor」を実際に使えるようにしました。このモデルは OpenCode の OpenAI 互換リレー（通常のチャットAPI）では「Model does not support this protocol.」（400）になり、Google ネイティブの専用リレー（generateContent 形式）にのみ応答します。Gemini 系モデルを選んだときだけ、自動でこの形式（x-goog-api-key 認証＋会話アフィニティ）に切り替えて送るようにし、プロキシもこの経路の中継に対応しています。"
     ],
@@ -2292,6 +2305,266 @@ ${relationship_context}`;
   var INITIAL_RETRY_DELAY = 100;
   var MAX_PROFILES = 5;
 
+  // src/utils/openrouter-provider.js
+  var OPENROUTER_QUANTIZATION_LEVELS = [
+    "int4",
+    "int8",
+    "fp4",
+    "mxfp4",
+    "nvfp4",
+    "fp6",
+    "fp8",
+    "mxfp8",
+    "fp16",
+    "bf16",
+    "fp32",
+    "unknown"
+  ];
+  var OPENROUTER_PROVIDER_PREF_KEYS = {
+    order: "providerList",
+    only: "providerList",
+    ignore: "providerList",
+    quantizations: "quantizations",
+    allow_fallbacks: "boolean",
+    require_parameters: "boolean",
+    zdr: "boolean",
+    enforce_distillable_text: "boolean",
+    data_collection: "dataCollection",
+    sort: "sort",
+    preferred_min_throughput: "numberOrObject",
+    preferred_max_latency: "numberOrObject",
+    max_price: "object"
+  };
+  var HARD_FILTER_KEYS = ["only", "ignore", "quantizations", "require_parameters", "max_price"];
+  var OPENROUTER_PROVIDER_PREFS_PRESETS = {
+    // 品質優先: fp4 以下の粗い量子化の提供元を除外し、信頼できる提供元を優先する。
+    // ただし quantizations はハードフィルタなので、fp8 以上の提供元が無いモデルでは 404 になる。
+    quality: {
+      id: "quality",
+      label: "品質優先",
+      description: "fp4 以下の量子化を除外し、deepseek / novita / deepinfra を優先する",
+      json: JSON.stringify(
+        {
+          quantizations: ["fp8", "fp16", "bf16", "fp32"],
+          order: ["deepseek", "novita", "deepinfra"],
+          allow_fallbacks: true
+        },
+        null,
+        2
+      )
+    },
+    // 順序のみ: ハードフィルタを使わないので、どのモデルでも 404 にならない安全な設定。
+    order: {
+      id: "order",
+      label: "順序のみ",
+      description: "量子化の絞り込みはせず、信頼できる提供元を優先するだけ（どのモデルでも安全）",
+      json: JSON.stringify(
+        {
+          order: ["deepseek", "novita", "deepinfra"],
+          allow_fallbacks: true
+        },
+        null,
+        2
+      )
+    }
+  };
+  var DEFAULT_OPENROUTER_PROVIDER_PREFS = OPENROUTER_PROVIDER_PREFS_PRESETS.quality.json;
+  var DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED = true;
+  var isPlainObject = /* @__PURE__ */ __name((value) => typeof value === "object" && value !== null && !Array.isArray(value), "isPlainObject");
+  var isProviderList = /* @__PURE__ */ __name((value) => Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item.trim().length > 0), "isProviderList");
+  var keyTypeLabel = /* @__PURE__ */ __name((type) => {
+    switch (type) {
+      case "providerList":
+        return '文字列の配列（例: ["deepseek", "novita"]）';
+      case "quantizations":
+        return `量子化レベルの配列（${OPENROUTER_QUANTIZATION_LEVELS.join(" / ")}）`;
+      case "boolean":
+        return "true / false";
+      case "dataCollection":
+        return '"allow" または "deny"';
+      case "sort":
+        return '"price" / "throughput" / "latency" または { by, partition }';
+      case "numberOrObject":
+        return "数値、または { p50, p75, p90, p99 }";
+      case "object":
+        return "オブジェクト";
+      default:
+        return "正しい型";
+    }
+  }, "keyTypeLabel");
+  var validateQuantizations = /* @__PURE__ */ __name((value) => {
+    if (!Array.isArray(value) || value.length === 0) {
+      return '量子化レベルの配列にしてください（例: ["fp8", "fp16", "bf16", "fp32"]）';
+    }
+    const unknown = value.filter(
+      (item) => typeof item !== "string" || !OPENROUTER_QUANTIZATION_LEVELS.includes(item.trim().toLowerCase())
+    );
+    if (unknown.length > 0) {
+      return `扱えない量子化レベルが含まれています: ${unknown.map((v) => JSON.stringify(v)).join(", ")}（使える値: ${OPENROUTER_QUANTIZATION_LEVELS.join(" / ")}）`;
+    }
+    return null;
+  }, "validateQuantizations");
+  var validateSort = /* @__PURE__ */ __name((value) => {
+    if (typeof value === "string") {
+      return ["price", "throughput", "latency"].includes(value) ? null : 'sort は "price" / "throughput" / "latency" のいずれかで指定してください。';
+    }
+    if (isPlainObject(value)) {
+      if (value.by !== void 0 && !["price", "throughput", "latency"].includes(value.by)) {
+        return 'sort.by は "price" / "throughput" / "latency" のいずれかで指定してください。';
+      }
+      if (value.partition !== void 0 && !["model", "none"].includes(value.partition)) {
+        return 'sort.partition は "model" または "none" で指定してください。';
+      }
+      return null;
+    }
+    return "sort は文字列またはオブジェクトで指定してください。";
+  }, "validateSort");
+  var validateNumberOrObject = /* @__PURE__ */ __name((key, value) => {
+    if (typeof value === "number" && Number.isFinite(value)) return null;
+    if (isPlainObject(value)) {
+      const bad = Object.entries(value).filter(
+        ([percentile, v]) => !["p50", "p75", "p90", "p99"].includes(percentile) || typeof v !== "number" || !Number.isFinite(v)
+      );
+      if (bad.length === 0) return null;
+      return `${key} のパーセンタイル指定が不正です（例: { "p50": 100 }。使えるキー: p50 / p75 / p90 / p99）。`;
+    }
+    return `${key} は数値または { p50, p75, p90, p99 } で指定してください。`;
+  }, "validateNumberOrObject");
+  function parseOpenRouterProviderPrefs(text) {
+    const result = { ok: true, value: null, empty: true, warnings: [], error: null };
+    if (text === void 0 || text === null || String(text).trim() === "") {
+      return result;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(String(text));
+    } catch (e) {
+      result.ok = false;
+      result.empty = false;
+      result.error = `JSON として解釈できません（${e.message}）。`;
+      return result;
+    }
+    if (parsed === null) {
+      return result;
+    }
+    if (!isPlainObject(parsed)) {
+      result.ok = false;
+      result.empty = false;
+      result.error = "provider 設定は JSON オブジェクト（{ ... }）で書いてください（配列や数値は使えません）。";
+      return result;
+    }
+    if (Object.keys(parsed).length === 0) {
+      return result;
+    }
+    result.empty = false;
+    const value = {};
+    for (const [key, rawValue] of Object.entries(parsed)) {
+      const type = OPENROUTER_PROVIDER_PREF_KEYS[key];
+      if (!type) {
+        result.ok = false;
+        result.error = `「${key}」は OpenRouter の provider 設定では使えません。使えるキー: ${Object.keys(
+          OPENROUTER_PROVIDER_PREF_KEYS
+        ).join(" / ")}`;
+        return result;
+      }
+      if (type === "boolean") {
+        if (typeof rawValue !== "boolean") {
+          result.ok = false;
+          result.error = `「${key}」は ${keyTypeLabel(type)} で指定してください。`;
+          return result;
+        }
+        value[key] = rawValue;
+        continue;
+      }
+      if (type === "providerList") {
+        if (!isProviderList(rawValue)) {
+          result.ok = false;
+          result.error = `「${key}」は ${keyTypeLabel(type)} で指定してください。`;
+          return result;
+        }
+        value[key] = rawValue.map((item) => item.trim());
+        continue;
+      }
+      if (type === "quantizations") {
+        const error = validateQuantizations(rawValue);
+        if (error) {
+          result.ok = false;
+          result.error = error;
+          return result;
+        }
+        value[key] = rawValue.map((item) => item.trim().toLowerCase());
+        continue;
+      }
+      if (type === "dataCollection") {
+        if (rawValue !== "allow" && rawValue !== "deny") {
+          result.ok = false;
+          result.error = `「data_collection」は ${keyTypeLabel(type)} で指定してください。`;
+          return result;
+        }
+        value[key] = rawValue;
+        continue;
+      }
+      if (type === "sort") {
+        const error = validateSort(rawValue);
+        if (error) {
+          result.ok = false;
+          result.error = error;
+          return result;
+        }
+        value[key] = rawValue;
+        continue;
+      }
+      if (type === "numberOrObject") {
+        const error = validateNumberOrObject(key, rawValue);
+        if (error) {
+          result.ok = false;
+          result.error = error;
+          return result;
+        }
+        value[key] = rawValue;
+        continue;
+      }
+      if (!isPlainObject(rawValue)) {
+        result.ok = false;
+        result.error = `「${key}」は ${keyTypeLabel(type)} で指定してください。`;
+        return result;
+      }
+      value[key] = rawValue;
+    }
+    const hardFilters = HARD_FILTER_KEYS.filter((key) => value[key] !== void 0);
+    if (hardFilters.length > 0) {
+      result.warnings.push(
+        `${hardFilters.join(" / ")} は絞り込み（ハードフィルタ）です。条件に合う提供元が無いモデルでは「No endpoints found matching your provider preferences」で失敗します。`
+      );
+    }
+    if (value.quantizations !== void 0 && value.allow_fallbacks === false) {
+      result.warnings.push(
+        "quantizations で絞り込んだうえ allow_fallbacks を false にすると、提供元が落ちたときに即エラーになります。"
+      );
+    }
+    if (value.order !== void 0 && value.only !== void 0) {
+      result.warnings.push(
+        "order と only を両方指定しています。only で許可した提供元の中だけで order が効きます。"
+      );
+    }
+    if (value.order !== void 0 || value.sort !== void 0) {
+      result.warnings.push(
+        "order / sort を指定すると OpenRouter の価格ベース負荷分散は無効になります（指定順に試行）。"
+      );
+    }
+    result.value = value;
+    return result;
+  }
+  __name(parseOpenRouterProviderPrefs, "parseOpenRouterProviderPrefs");
+  function buildOpenRouterProviderField(settings) {
+    const s = settings || {};
+    if (s.openrouterProviderPrefsEnabled === false) return {};
+    const parsed = parseOpenRouterProviderPrefs(s.openrouterProviderPrefs);
+    if (!parsed.ok || parsed.empty || !parsed.value) return {};
+    return { provider: parsed.value };
+  }
+  __name(buildOpenRouterProviderField, "buildOpenRouterProviderField");
+
   // src/state.js
   var state = {
     tabId: `tab_${Date.now()}_${Math.random()}`,
@@ -2319,6 +2592,11 @@ ${relationship_context}`;
       apiKey: "",
       zaiApiKey: "",
       openrouterApiKey: "",
+      // OpenRouter のプロバイダー設定（リクエストボディの provider オブジェクト）。
+      // 既定は「品質優先」（fp4 以下の量子化を除外＋信頼できる提供元を優先）。
+      // 設定画面のチェックボックスで送信を止められる（テキストは残る）。
+      openrouterProviderPrefs: DEFAULT_OPENROUTER_PROVIDER_PREFS,
+      openrouterProviderPrefsEnabled: DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED,
       bedrockAccessKey: "",
       bedrockSecretKey: "",
       bedrockRegion: DEFAULT_BEDROCK_REGION,
@@ -4107,6 +4385,15 @@ Reason: [NGの場合の理由]`,
       if (elements.openrouterApiKeyInput) {
         elements.openrouterApiKeyInput.value = state.settings.openrouterApiKey || "";
       }
+      if (elements.openrouterProviderPrefsTextarea) {
+        elements.openrouterProviderPrefsTextarea.value = state.settings.openrouterProviderPrefs ?? DEFAULT_OPENROUTER_PROVIDER_PREFS;
+      }
+      if (elements.openrouterProviderPrefsEnabledToggle) {
+        elements.openrouterProviderPrefsEnabledToggle.checked = state.settings.openrouterProviderPrefsEnabled !== false;
+      }
+      if (typeof appLogic.updateOpenRouterProviderPrefsUI === "function") {
+        appLogic.updateOpenRouterProviderPrefsUI();
+      }
       if (elements.bedrockAccessKeyInput) {
         elements.bedrockAccessKeyInput.value = state.settings.bedrockAccessKey || "";
       }
@@ -5098,6 +5385,7 @@ Reason: [NGの場合の理由]`,
         "apiKey",
         "zaiApiKey",
         "openrouterApiKey",
+        "openrouterProviderPrefs",
         "bedrockAccessKey",
         "bedrockSecretKey",
         "bedrockRegion",
@@ -5160,7 +5448,8 @@ Reason: [NGの場合の理由]`,
         "forceFunctionCalling",
         "autoScroll",
         "enableWideMode",
-        "enableSummaryButton"
+        "enableSummaryButton",
+        "openrouterProviderPrefsEnabled"
       ];
       settings.systemPrompt = elements.systemPromptDefaultTextarea.value.trim();
       settings.fixedRetryDelaySeconds = parseFloat(elements.fixedRetryDelayInput.value) || null;
@@ -5485,6 +5774,43 @@ Reason: [NGの場合の理由]`,
         usageContainer.classList.add("hidden");
       }
     }, "updateApiUsageUI"),
+    // OpenRouter のプロバイダー設定（JSON）の検証結果を設定画面に出す。
+    // 不正な JSON でも保存自体はできる（打っている途中を弾かないため）が、
+    // 送信時は「送らない」側に倒れるので、今の内容で実際に何が送られるかを常に見せる。
+    updateOpenRouterProviderPrefsUI() {
+      const textarea = elements.openrouterProviderPrefsTextarea;
+      const statusEl = elements.openrouterProviderPrefsStatus;
+      const toggle = elements.openrouterProviderPrefsEnabledToggle;
+      if (textarea && toggle) {
+        textarea.disabled = !toggle.checked;
+      }
+      if (!statusEl) return;
+      if (toggle && !toggle.checked) {
+        statusEl.textContent = "送信しません（チェックが外れています）。";
+        statusEl.style.color = "var(--text-secondary)";
+        return;
+      }
+      const parsed = parseOpenRouterProviderPrefs(textarea ? textarea.value : "");
+      if (!parsed.ok) {
+        statusEl.textContent = `⚠ この設定は送信されません: ${parsed.error}`;
+        statusEl.style.color = "#e05252";
+        return;
+      }
+      if (parsed.empty) {
+        statusEl.textContent = "空欄のため、プロバイダー設定は送りません（OpenRouter の既定ルーティング）。";
+        statusEl.style.color = "var(--text-secondary)";
+        return;
+      }
+      const summary = `送信する内容: ${JSON.stringify(parsed.value)}`;
+      if (parsed.warnings.length > 0) {
+        statusEl.textContent = `✅ ${summary}
+※ ${parsed.warnings.join("\n※ ")}`;
+        statusEl.style.color = "#c99700";
+      } else {
+        statusEl.textContent = `✅ ${summary}`;
+        statusEl.style.color = "var(--text-secondary)";
+      }
+    },
     // プロバイダー変更時のUI更新
     updateProviderUI(provider) {
       const isGemini2 = provider === "gemini";
@@ -6318,6 +6644,17 @@ Reason: [NGの場合の理由]`,
         sakanaApiKey: { element: elements.sakanaApiKeyInput, event: "input" },
         opencodeApiKey: { element: elements.opencodeApiKeyInput, event: "input" },
         opencodeProxyUrl: { element: elements.opencodeProxyUrlInput, event: "input" },
+        // OpenRouter のプロバイダー設定（JSON）。入力中は弾かず、確定（change）で保存する。
+        openrouterProviderPrefs: {
+          element: elements.openrouterProviderPrefsTextarea,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => this.updateOpenRouterProviderPrefsUI(), "onUpdate")
+        },
+        openrouterProviderPrefsEnabled: {
+          element: elements.openrouterProviderPrefsEnabledToggle,
+          event: "change",
+          onUpdate: /* @__PURE__ */ __name(() => this.updateOpenRouterProviderPrefsUI(), "onUpdate")
+        },
         modelName: {
           element: elements.modelNameSelect,
           event: "change",
@@ -9258,7 +9595,10 @@ AI: ${firstModelContent}`;
             body: JSON.stringify({
               model: titleModel,
               max_tokens: 200,
-              messages: [{ role: "user", content: titlePrompt }]
+              messages: [{ role: "user", content: titlePrompt }],
+              // OpenRouter のときはプロバイダー設定（order / quantizations 等）を
+              // 本文生成と同じ条件で送る（タイトルだけ粗い量子化の提供元に当たるのを防ぐ）
+              ...provider === "openrouter" ? buildOpenRouterProviderField(state.settings) : {}
             })
           });
           if (resp.ok) {
@@ -9310,6 +9650,10 @@ AI: ${firstModelContent}`;
   __name(isReasoningOnlyCompletion, "isReasoningOnlyCompletion");
 
   // src/api.js
+  function getOpenRouterProviderPrefs() {
+    return buildOpenRouterProviderField(state.settings).provider || null;
+  }
+  __name(getOpenRouterProviderPrefs, "getOpenRouterProviderPrefs");
   function extractSystemText(systemInstruction) {
     if (!systemInstruction) return null;
     if (typeof systemInstruction === "string") return systemInstruction;
@@ -10042,6 +10386,15 @@ AI: ${firstModelContent}`;
         model,
         messages: openAIMessages
       };
+      if (typeof cfg.getProviderPrefs === "function") {
+        const providerPrefs = cfg.getProviderPrefs();
+        if (providerPrefs) {
+          requestBody.provider = providerPrefs;
+          console.log(
+            `[${cfg.label}] プロバイダー設定を送信します: ${JSON.stringify(providerPrefs)}`
+          );
+        }
+      }
       if (generationConfig) {
         if (generationConfig.temperature !== void 0) {
           requestBody.temperature = generationConfig.temperature;
@@ -10186,6 +10539,9 @@ AI: ${firstModelContent}`;
               }
             } else if (errorData.message) {
               errorMsg = `APIエラー (${response.status}): ${errorData.message}`;
+            }
+            if (response.status === 404 && typeof cfg.getProviderPrefs === "function" && cfg.getProviderPrefs()) {
+              errorMsg += " — 設定の「OpenRouter プロバイダー設定」が条件に合う提供元を見つけられませんでした。quantizations / only / require_parameters は絞り込みなので、値を広げるかチェックを外してください。";
             }
           } catch (e) {
             console.error("APIエラーレスポンスボディのパース失敗:", e);
@@ -10776,6 +11132,8 @@ ${knowledgeText}`;
             getApiKey: /* @__PURE__ */ __name(() => state.settings.openrouterApiKey, "getApiKey"),
             missingKeyMessage: "OpenRouter APIキーが設定されていません。",
             extraHeaders: /* @__PURE__ */ __name(() => ({ "HTTP-Referer": window.location.origin, "X-Title": "PWA-lily" }), "extraHeaders"),
+            // 提供元の指定（order / only / quantizations 等）。設定画面のJSONから組み立てる。
+            getProviderPrefs: getOpenRouterProviderPrefs,
             supportsReasoning: true,
             // Gemini 系（@preset 経由を含む）は reasoning_details を履歴で戻す必要がある
             passthroughReasoningDetails: true,
@@ -14098,7 +14456,10 @@ ${msg}`);
           { role: "user", content: userContent }
         ],
         temperature,
-        max_tokens: maxTokens
+        max_tokens: maxTokens,
+        // OpenRouter のときは本文生成と同じプロバイダー設定を送る
+        // （要約だけ粗い量子化の提供元に当たって品質が落ちるのを防ぐ）
+        ...provider === "openrouter" ? buildOpenRouterProviderField(state.settings) : {}
       };
       parse = /* @__PURE__ */ __name((d) => d.choices?.[0]?.message?.content, "parse");
     }
@@ -16325,6 +16686,40 @@ ${pageText}
           });
         }
       });
+      if (state.settings.openrouterProviderPrefs === void 0) {
+        state.settings.openrouterProviderPrefs = DEFAULT_OPENROUTER_PROVIDER_PREFS;
+      }
+      if (state.settings.openrouterProviderPrefsEnabled === void 0) {
+        state.settings.openrouterProviderPrefsEnabled = DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED;
+      }
+      const orPrefsTextarea = document.getElementById("openrouter-provider-prefs");
+      const orPrefsToggle = document.getElementById("openrouter-provider-prefs-enabled-toggle");
+      if (orPrefsTextarea) {
+        orPrefsTextarea.value = state.settings.openrouterProviderPrefs;
+        orPrefsTextarea.addEventListener(
+          "input",
+          () => appLogic.updateOpenRouterProviderPrefsUI()
+        );
+      }
+      if (orPrefsToggle) {
+        orPrefsToggle.checked = state.settings.openrouterProviderPrefsEnabled !== false;
+      }
+      const applyOpenRouterPrefsPreset = /* @__PURE__ */ __name(async (json) => {
+        if (!orPrefsTextarea) return;
+        orPrefsTextarea.value = json;
+        await persistCustomSetting("openrouterProviderPrefs", json);
+        appLogic.updateOpenRouterProviderPrefsUI();
+      }, "applyOpenRouterPrefsPreset");
+      document.getElementById("openrouter-prefs-preset-quality")?.addEventListener(
+        "click",
+        () => applyOpenRouterPrefsPreset(OPENROUTER_PROVIDER_PREFS_PRESETS.quality.json)
+      );
+      document.getElementById("openrouter-prefs-preset-order")?.addEventListener(
+        "click",
+        () => applyOpenRouterPrefsPreset(OPENROUTER_PROVIDER_PREFS_PRESETS.order.json)
+      );
+      document.getElementById("openrouter-prefs-preset-clear")?.addEventListener("click", () => applyOpenRouterPrefsPreset(""));
+      appLogic.updateOpenRouterProviderPrefsUI();
       if (mainSelect && apiProvSelect) {
         mainSelect.addEventListener("change", async (e) => {
           const selectedOpt = mainSelect.options[mainSelect.selectedIndex];

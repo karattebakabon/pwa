@@ -7,6 +7,7 @@ import { dbUtils } from './db.js';
 import { elements } from './dom-elements.js';
 import { searchChats } from './utils/search.js';
 import { isImageGenerationModel } from './utils/model-select.js';
+import { DEFAULT_OPENROUTER_PROVIDER_PREFS } from './utils/openrouter-provider.js';
 import { htmlUtils } from './utils/html.js';
 import { state } from './state.js';
 
@@ -1113,6 +1114,18 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         }
         if (elements.openrouterApiKeyInput) {
             elements.openrouterApiKeyInput.value = state.settings.openrouterApiKey || '';
+        }
+        if (elements.openrouterProviderPrefsTextarea) {
+            // 空文字（ユーザーが消した）は尊重し、未設定のときだけ既定を入れる。
+            elements.openrouterProviderPrefsTextarea.value =
+                state.settings.openrouterProviderPrefs ?? DEFAULT_OPENROUTER_PROVIDER_PREFS;
+        }
+        if (elements.openrouterProviderPrefsEnabledToggle) {
+            elements.openrouterProviderPrefsEnabledToggle.checked =
+                state.settings.openrouterProviderPrefsEnabled !== false;
+        }
+        if (typeof appLogic.updateOpenRouterProviderPrefsUI === 'function') {
+            appLogic.updateOpenRouterProviderPrefsUI();
         }
         if (elements.bedrockAccessKeyInput) {
             elements.bedrockAccessKeyInput.value = state.settings.bedrockAccessKey || '';

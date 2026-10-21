@@ -148,6 +148,11 @@ export function registerServiceWorker() {
 import { dbUtils } from './db.js';
 import { getOpencodeSessionFetchInit } from './api.js';
 import { GEMINI_MODELS, OPENROUTER_PRESETS } from './constants.js';
+import {
+    DEFAULT_OPENROUTER_PROVIDER_PREFS,
+    DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED,
+    OPENROUTER_PROVIDER_PREFS_PRESETS,
+} from './utils/openrouter-provider.js';
 
 // --- UIユーティリティ (uiUtils) ---
 
@@ -1098,6 +1103,49 @@ window.dbUtils = dbUtils;
                 });
             }
         });
+
+        // --- OpenRouter のプロバイダー設定（リクエストの provider オブジェクト） ---
+        // ・未設定のプロファイルには既定（品質優先）を入れる（保存済みの値は尊重する）
+        // ・入力中は検証結果だけ更新し、確定（change）で保存する（保存は lifecycle.js の即時保存）
+        // ・プリセットボタンで JSON を入れ替える
+        if (state.settings.openrouterProviderPrefs === undefined) {
+            state.settings.openrouterProviderPrefs = DEFAULT_OPENROUTER_PROVIDER_PREFS;
+        }
+        if (state.settings.openrouterProviderPrefsEnabled === undefined) {
+            state.settings.openrouterProviderPrefsEnabled = DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED;
+        }
+        const orPrefsTextarea = document.getElementById('openrouter-provider-prefs');
+        const orPrefsToggle = document.getElementById('openrouter-provider-prefs-enabled-toggle');
+        if (orPrefsTextarea) {
+            orPrefsTextarea.value = state.settings.openrouterProviderPrefs;
+            // 打っている途中の JSON は保存しない（検証結果の表示だけ更新する）
+            orPrefsTextarea.addEventListener('input', () =>
+                appLogic.updateOpenRouterProviderPrefsUI()
+            );
+        }
+        if (orPrefsToggle) {
+            orPrefsToggle.checked = state.settings.openrouterProviderPrefsEnabled !== false;
+        }
+        const applyOpenRouterPrefsPreset = async (json) => {
+            if (!orPrefsTextarea) return;
+            orPrefsTextarea.value = json;
+            await persistCustomSetting('openrouterProviderPrefs', json);
+            appLogic.updateOpenRouterProviderPrefsUI();
+        };
+        document
+            .getElementById('openrouter-prefs-preset-quality')
+            ?.addEventListener('click', () =>
+                applyOpenRouterPrefsPreset(OPENROUTER_PROVIDER_PREFS_PRESETS.quality.json)
+            );
+        document
+            .getElementById('openrouter-prefs-preset-order')
+            ?.addEventListener('click', () =>
+                applyOpenRouterPrefsPreset(OPENROUTER_PROVIDER_PREFS_PRESETS.order.json)
+            );
+        document
+            .getElementById('openrouter-prefs-preset-clear')
+            ?.addEventListener('click', () => applyOpenRouterPrefsPreset(''));
+        appLogic.updateOpenRouterProviderPrefsUI();
 
         if(mainSelect && apiProvSelect) {
             mainSelect.addEventListener('change', async (e) => {
