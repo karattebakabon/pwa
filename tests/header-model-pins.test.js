@@ -181,6 +181,20 @@ describe('配線（回帰防止）', () => {
         expect(lifecycle).toContain('this.renderHeaderModelPins();');
     });
 
+    it('一覧の行は左詰め・長いモデルIDは折り返す（右端で切れない）', () => {
+        const css = read('style.css');
+        expect(read('src/app-logic/lifecycle.js')).toContain("row.className = 'header-model-pin-row'");
+        expect(css).toContain('.header-model-pin-row {');
+        expect(css).toMatch(/\.header-model-pin-row \{[^}]*justify-content: flex-start;/);
+        expect(css).toMatch(/\.header-model-pin-row \{[^}]*text-align: left;/);
+        // min-width:0 が無いと nowrap の長いIDが行からはみ出し、右端でプロバイダ名が切れる
+        expect(css).toMatch(/\.header-model-pin-row span \{[^}]*min-width: 0;/);
+        expect(css).toMatch(/\.header-model-pin-row span \{[^}]*overflow-wrap: anywhere;/);
+        // ステータス・ボタン行も左詰め
+        expect(css).toMatch(/\.header-model-pins-actions \{[^}]*justify-content: flex-start;/);
+        expect(css).toMatch(/\.header-model-pins-status \{[^}]*text-align: left;/);
+    });
+
     it('プロファイルのエクスポートに含める', () => {
         expect(read('src/app-logic/profile.js')).toContain('settings.headerModelPins');
     });

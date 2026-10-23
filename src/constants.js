@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.77';
+export const APP_VERSION = '1.25.78';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -308,7 +308,9 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
-    '1.77': [
+    '1.78': [
+        '設定画面の「メイン画面右上に表示するモデル」の一覧が右詰めに見え、長いモデルIDの末尾（プロバイダ名）が右端で切れていたのを修正しました。行を左詰めにそろえ、長いIDは折り返して全体が見えるようにしています。',
+    ],    '1.77': [
         'メイン画面右上のモデル選択を作り直しました。設定画面の「▼ メイン画面右上に表示するモデル」でチェックしたモデルだけが右上に出ます（全部チェック／未チェックなら従来どおり全表示）。API取得モデルを入れて選択肢が数百件になっているときでも、よく使うモデルだけを並べられます。',
         'OpenRouter の「deepseek/deepseek-v4-pro」とプリセット「Gemini 4 Argon (Flex) — @preset/argon-flex」は、設定に関係なく右上に常時表示します。',
         'チェックはプロバイダごとに保存され、プロファイルのエクスポートにも含まれます。設定の「すべて表示に戻す」で解除できます。',

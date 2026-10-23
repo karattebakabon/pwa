@@ -3636,3 +3636,59 @@ body.dark-mode[data-color-preset="kohaku"] {
 }
 /* ダークのヘッダーは濃色背景のため文字色を明示（--text-light はダークで暗色） */
 body.dark-mode[data-color-preset="kohaku"] .app-header { color: #f1e7d8; }
+
+/* --- 設定画面: メイン画面右上に表示するモデルの選択 --------------------------- */
+/* グローバルの `label { display:block; margin-bottom: … }` を打ち消して行を左詰めにする。
+   span に min-width:0 を入れるのが要点（無いと nowrap の長いモデルIDが行からはみ出し、
+   右端で切れてプロバイダ名が見えなくなる）。 */
+.header-model-pins-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-top: 8px;
+}
+.header-model-pin-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 2px 0;
+    font-size: 12px;
+    font-weight: 400;
+    text-align: left;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.header-model-pin-row input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 2px 0 0 0;
+    cursor: pointer;
+}
+.header-model-pin-row span {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    line-height: 1.35;
+}
+.header-model-pins-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.header-model-pins-status {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    text-align: left;
+}

@@ -35,7 +35,7 @@
                 console.error("AWS Bedrock Runtime SDKの読み込みに失敗しました:", err);
             });
     </script>
-    <script src="app.js?v=1.25.77" defer></script>
+    <script src="app.js?v=1.25.78" defer></script>
 </head>
 <body>
     <div class="app-container">
@@ -499,11 +499,11 @@
                                     チェックしたモデルだけが画面右上のメニューに出ます（全部チェック／未チェックなら従来どおり全表示）。<br>
                                     プロバイダを切り替えると、そのプロバイダ用の一覧に変わります。
                                 </p>
-                                <div id="header-model-pins-list" style="max-height: 220px; overflow-y: auto; margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
-                                <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                                <div id="header-model-pins-list" class="header-model-pins-list"></div>
+                                <div class="header-model-pins-actions">
                                     <button type="button" id="header-model-pins-clear" class="settings-reset-button">すべて表示に戻す</button>
                                 </div>
-                                <p id="header-model-pins-status" style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;"></p>
+                                <p id="header-model-pins-status" class="header-model-pins-status"></p>
                             </div>
 
                             <p id="model-warning-message" class="hidden model-warning">

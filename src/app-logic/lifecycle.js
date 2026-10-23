@@ -334,8 +334,9 @@ export const lifecycleMethods = {
         }
         rows.forEach(({ id, label }) => {
             const row = document.createElement('label');
-            row.style.cssText =
-                'display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;';
+            // 見た目は style.css の .header-model-pin-row（左詰め・長いIDは折り返し）。
+            // インラインstyleで書くとグローバルの label 指定や折り返しの調整が効きにくい。
+            row.className = 'header-model-pin-row';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.value = id;
@@ -344,7 +345,6 @@ export const lifecycleMethods = {
             cb.addEventListener('change', () => this.saveHeaderModelPins());
             const span = document.createElement('span');
             span.textContent = label;
-            span.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
             row.appendChild(cb);
             row.appendChild(span);
             listEl.appendChild(row);

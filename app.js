@@ -1904,7 +1904,7 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.77";
+  var APP_VERSION = "1.25.78";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
@@ -2100,6 +2100,9 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.78": [
+      "設定画面の「メイン画面右上に表示するモデル」の一覧が右詰めに見え、長いモデルIDの末尾（プロバイダ名）が右端で切れていたのを修正しました。行を左詰めにそろえ、長いIDは折り返して全体が見えるようにしています。"
+    ],
     "1.77": [
       "メイン画面右上のモデル選択を作り直しました。設定画面の「▼ メイン画面右上に表示するモデル」でチェックしたモデルだけが右上に出ます（全部チェック／未チェックなら従来どおり全表示）。API取得モデルを入れて選択肢が数百件になっているときでも、よく使うモデルだけを並べられます。",
       "OpenRouter の「deepseek/deepseek-v4-pro」とプリセット「Gemini 4 Argon (Flex) — @preset/argon-flex」は、設定に関係なく右上に常時表示します。",
@@ -5904,7 +5907,7 @@ Reason: [NGの場合の理由]`,
       }
       rows.forEach(({ id, label }) => {
         const row = document.createElement("label");
-        row.style.cssText = "display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;";
+        row.className = "header-model-pin-row";
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.value = id;
@@ -5913,7 +5916,6 @@ Reason: [NGの場合の理由]`,
         cb.addEventListener("change", () => this.saveHeaderModelPins());
         const span = document.createElement("span");
         span.textContent = label;
-        span.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
         row.appendChild(cb);
         row.appendChild(span);
         listEl.appendChild(row);
