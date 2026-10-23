@@ -1,7 +1,9 @@
 // appLogic 機能モジュール: lifecycle（Phase 3 で app-logic.js から分割）。挙動は不変。
 import { registerServiceWorker, setupBroadcastChannel, updateMessageMaxWidthVar } from '../app.js';
 import { parseOpenRouterProviderPrefs } from '../utils/openrouter-provider.js';
+import { getHeaderModelPins, normalizeHeaderModelPins } from '../utils/header-models.js';
 import {
+    ALWAYS_VISIBLE_HEADER_MODELS,
     ANTHROPIC_MODELS,
     APP_VERSION,
     BEDROCK_MODELS,
@@ -301,6 +303,94 @@ export const lifecycleMethods = {
         }
     },
 
+    // ---------------------------------------------------------------
+    // ヘッダー（メイン画面右上）に出すモデルの選択
+    // ---------------------------------------------------------------
+    // 設定画面のモデル一覧(#model-name)をそのままヘッダーへミラーすると、API取得モデルを
+    // 入れたときに数百件並んで選びにくい。ここでチェックさせたモデルだけをヘッダーに出す。
+    // 全部チェック／未チェック＝「絞り込みなし」として従来どおり全表示にする。
+    renderHeaderModelPins() {
+        const listEl = elements.headerModelPinsList;
+        if (!listEl) return;
+        const provider = state.settings.apiProvider || 'gemini';
+        const select = elements.modelNameSelect;
+        const rows = [];
+        const seen = new Set();
+        if (select) {
+            Array.from(select.querySelectorAll('option')).forEach((opt) => {
+                const id = opt.value;
+                if (!id || seen.has(id)) return; // ★お気に入りの再掲は無視する
+                seen.add(id);
+                rows.push({ id, label: opt.textContent || id });
+            });
+        }
+        const pins = getHeaderModelPins(state.settings.headerModelPins, provider);
+        listEl.textContent = '';
+        if (rows.length === 0) {
+            const empty = document.createElement('p');
+            empty.style.cssText = 'font-size:11px;color:var(--text-secondary);margin:0;';
+            empty.textContent = 'このプロバイダのモデル一覧をまだ読み込めていません。';
+            listEl.appendChild(empty);
+        }
+        rows.forEach(({ id, label }) => {
+            const row = document.createElement('label');
+            row.style.cssText =
+                'display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = id;
+            cb.dataset.modelId = id;
+            cb.checked = pins.includes(id);
+            cb.addEventListener('change', () => this.saveHeaderModelPins());
+            const span = document.createElement('span');
+            span.textContent = label;
+            span.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            row.appendChild(cb);
+            row.appendChild(span);
+            listEl.appendChild(row);
+        });
+        this.updateHeaderModelPinsStatus();
+    },
+
+    async saveHeaderModelPins() {
+        const listEl = elements.headerModelPinsList;
+        if (!listEl) return;
+        const provider = state.settings.apiProvider || 'gemini';
+        const boxes = Array.from(listEl.querySelectorAll('input[type="checkbox"]'));
+        const checked = boxes.filter((cb) => cb.checked).map((cb) => cb.value);
+        const all = boxes.map((cb) => cb.value);
+        const pinsMap = normalizeHeaderModelPins(state.settings.headerModelPins);
+        if (checked.length === 0 || checked.length === all.length) {
+            delete pinsMap[provider]; // 絞り込みなし
+        } else {
+            pinsMap[provider] = checked;
+        }
+        state.settings.headerModelPins = pinsMap;
+        if (state.activeProfile) {
+            state.activeProfile.settings = state.activeProfile.settings || {};
+            state.activeProfile.settings.headerModelPins = pinsMap;
+            await dbUtils.updateProfile(state.activeProfile);
+        }
+        this.updateHeaderModelPinsStatus();
+        // ヘッダーの選択肢を即座に作り直す（app.js 側のミラーへ通知）
+        window.dispatchEvent(new CustomEvent('header-model-pins-changed'));
+    },
+
+    updateHeaderModelPinsStatus() {
+        const statusEl = elements.headerModelPinsStatus;
+        if (!statusEl) return;
+        const provider = state.settings.apiProvider || 'gemini';
+        const pins = getHeaderModelPins(state.settings.headerModelPins, provider);
+        const always = (ALWAYS_VISIBLE_HEADER_MODELS || {})[provider] || [];
+        const parts = [
+            pins.length > 0
+                ? `右上には ${pins.length} 件を表示（＋常時表示）`
+                : '右上には全モデルを表示中（絞り込みなし）',
+        ];
+        if (always.length > 0) parts.push(`常時表示: ${always.join(' / ')}`);
+        statusEl.textContent = parts.join(' ／ ');
+    },
+
     // OpenRouter のプロバイダー設定（JSON）の検証結果を設定画面に出す。
     // 不正な JSON でも保存自体はできる（打っている途中を弾かないため）が、
     // 送信時は「送らない」側に倒れるので、今の内容で実際に何が送られるかを常に見せる。
@@ -476,6 +566,9 @@ export const lifecycleMethods = {
             // モデル警告メッセージとAPI使用状況の更新
             uiUtils.updateModelWarningMessage();
             this.updateApiUsageUI();
+            // OpenRouter はセレクトを作り替えないが、右上の候補（追加モデル/プリセット）は
+            // ここで作り直しておく（renderCustomModels より先に走る場合があるため）
+            this.renderHeaderModelPins();
             return;
         }
 
@@ -636,6 +729,8 @@ export const lifecycleMethods = {
         // モデル警告メッセージを更新
         uiUtils.updateModelWarningMessage();
         this.updateApiUsageUI();
+        // 右上（ヘッダー）に出すモデルの候補も、このプロバイダの一覧に合わせて作り直す
+        this.renderHeaderModelPins();
     },
 
     // アプリ初期化

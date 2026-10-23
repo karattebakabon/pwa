@@ -24,6 +24,9 @@ export const state = {
         apiProvider: 'gemini',
         apiKey: '',
         zaiApiKey: '',
+        // ヘッダーに表示するモデル（プロバイダ→モデルID配列）。
+        // 未設定/空 = そのプロバイダの全モデルを右上に出す（従来の挙動）。
+        headerModelPins: {},
         openrouterApiKey: '',
         // OpenRouter のプロバイダー設定（リクエストボディの provider オブジェクト）。
         // 既定は「品質優先」（fp4 以下の量子化を除外＋信頼できる提供元を優先）。

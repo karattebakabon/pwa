@@ -55,7 +55,7 @@ export const DUPLICATE_SUFFIX = ' (コピー)';
 export const IMPORT_PREFIX = '(取込) ';
 export const LIGHT_THEME_COLOR = '#908675';
 export const DARK_THEME_COLOR = '#908675';
-export const APP_VERSION = '1.25.76';
+export const APP_VERSION = '1.25.77';
 export const DEFAULT_ZAI_MODEL = 'glm-4.6';
 export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 
@@ -68,6 +68,13 @@ export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.1-fast';
 export const OPENROUTER_PRESETS = [
     { value: '@preset/argon-flex', label: 'Gemini 4 Argon (Flex) — @preset/argon-flex' },
 ];
+
+// メイン画面右上（ヘッダー）のモデル選択に「常時」並べるモデル。
+// 設定画面で表示するモデルを絞っても、ここに挙げたものは必ず残す。
+// （2026-10 ユーザー要望: OpenRouter の deepseek-v4-pro と Argon の flex プリセット）
+export const ALWAYS_VISIBLE_HEADER_MODELS = {
+    openrouter: ['deepseek/deepseek-v4-pro', '@preset/argon-flex'],
+};
 export const VERSION_NOTICE_SESSION_KEY = 'pendingVersionNotice';
 export const VERSION_ACK_STORAGE_KEY = 'appVersionAcknowledged';
 export const VERSION_LEGACY_STORAGE_KEY = 'appVersion';
@@ -301,7 +308,11 @@ export const SAKANA_MODELS = [
 export const DEFAULT_SAKANA_MODEL = 'fugu';
 
 export const VERSION_HISTORY = {
-    '1.76': [
+    '1.77': [
+        'メイン画面右上のモデル選択を作り直しました。設定画面の「▼ メイン画面右上に表示するモデル」でチェックしたモデルだけが右上に出ます（全部チェック／未チェックなら従来どおり全表示）。API取得モデルを入れて選択肢が数百件になっているときでも、よく使うモデルだけを並べられます。',
+        'OpenRouter の「deepseek/deepseek-v4-pro」とプリセット「Gemini 4 Argon (Flex) — @preset/argon-flex」は、設定に関係なく右上に常時表示します。',
+        'チェックはプロバイダごとに保存され、プロファイルのエクスポートにも含まれます。設定の「すべて表示に戻す」で解除できます。',
+    ],    '1.76': [
         'OpenRouter の「プロバイダー設定」を追加しました。リクエストの provider に、優先する提供元（order）、許可・除外する提供元（only / ignore）、量子化レベル（quantizations）などを指定できます。同じモデルでも提供元によって量子化が違い（fp8 / fp4 / int4 など）、粗い量子化の提供元に当たると出力品質が揺れるためです。設定は「設定 → OpenRouter」の「プロバイダー設定 (JSON)」に書きます。',
         '既定では「品質優先」（fp4 以下の量子化を除外し、deepseek / novita / deepinfra を優先）を入れてあります。チェックを外せば送信を止められ、ボタン1つで「順序のみ」「空にする」に切り替えられます。',
         '⚠ quantizations / only / ignore / require_parameters は「絞り込み」です。条件に合う提供元が1つも無いモデルでは 404（No endpoints found matching your provider preferences）になります。そのときは「順序のみ」に切り替えるか、チェックを外してください（エラーメッセージにも案内を出します）。order は優先順なので、他の提供元へもフォールバックします。order / sort を指定すると OpenRouter の価格ベース負荷分散は無効になります。',

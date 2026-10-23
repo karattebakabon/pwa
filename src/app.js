@@ -147,7 +147,8 @@ export function registerServiceWorker() {
 // --- IndexedDBユーティリティ (dbUtils) ---
 import { dbUtils } from './db.js';
 import { getOpencodeSessionFetchInit } from './api.js';
-import { GEMINI_MODELS, OPENROUTER_PRESETS } from './constants.js';
+import { ALWAYS_VISIBLE_HEADER_MODELS, GEMINI_MODELS, OPENROUTER_PRESETS } from './constants.js';
+import { filterHeaderOptionsHtml, getHeaderModelPins } from './utils/header-models.js';
 import {
     DEFAULT_OPENROUTER_PROVIDER_PREFS,
     DEFAULT_OPENROUTER_PROVIDER_PREFS_ENABLED,
@@ -233,9 +234,29 @@ window.dbUtils = dbUtils;
         const mainSelect = document.getElementById('model-name');
         if (!headerSelect || !mainSelect) return;
 
+        // ヘッダー（右上）に出すモデルを決める。設定画面で選んだピン＋プロバイダごとの
+        // 常時表示モデルだけを出し、ピンが無ければ従来どおり全モデルをミラーする。
+        // 絞り込みの DOM 操作は utils/header-models.js（純関数・テスト対象）に切り出してある。
+        const buildHeaderHtml = () => {
+            const settings = (window.state && window.state.settings) || {};
+            const provider = settings.apiProvider || 'gemini';
+            const labels = {};
+            OPENROUTER_PRESETS.forEach((preset) => {
+                labels[preset.value] = preset.label;
+            });
+            return filterHeaderOptionsHtml({
+                html: mainSelect.innerHTML,
+                pins: getHeaderModelPins(settings.headerModelPins, provider),
+                alwaysInclude: (ALWAYS_VISIBLE_HEADER_MODELS || {})[provider] || [],
+                provider,
+                labels,
+            });
+        };
+
         const syncToHeader = () => {
-            if (mainSelect.innerHTML !== headerSelect.innerHTML) {
-                headerSelect.innerHTML = mainSelect.innerHTML;
+            const html = buildHeaderHtml();
+            if (headerSelect.innerHTML !== html) {
+                headerSelect.innerHTML = html;
             }
             if (window.state && window.state.settings && window.state.settings.modelName) {
                 if (headerSelect.value !== window.state.settings.modelName) {
@@ -249,6 +270,31 @@ window.dbUtils = dbUtils;
         const observer = new MutationObserver(syncToHeader);
         observer.observe(mainSelect, { childList: true, subtree: true });
         setInterval(syncToHeader, 1000);
+        // 設定画面でピンを変えたら、1秒待たずに右上を作り直す
+        window.addEventListener('header-model-pins-changed', syncToHeader);
+
+        // 設定の「すべて表示に戻す」
+        const clearPinsBtn = document.getElementById('header-model-pins-clear');
+        if (clearPinsBtn) {
+            clearPinsBtn.addEventListener('click', async () => {
+                if (!window.state || !window.state.settings) return;
+                const provider = window.state.settings.apiProvider || 'gemini';
+                const pinsMap = Object.assign({}, window.state.settings.headerModelPins || {});
+                delete pinsMap[provider];
+                window.state.settings.headerModelPins = pinsMap;
+                if (window.state.activeProfile) {
+                    window.state.activeProfile.settings = window.state.activeProfile.settings || {};
+                    window.state.activeProfile.settings.headerModelPins = pinsMap;
+                    if (window.dbUtils && typeof window.dbUtils.updateProfile === 'function') {
+                        await window.dbUtils.updateProfile(window.state.activeProfile);
+                    }
+                }
+                if (window.appLogic && typeof window.appLogic.renderHeaderModelPins === 'function') {
+                    window.appLogic.renderHeaderModelPins();
+                }
+                syncToHeader();
+            });
+        }
 
         headerSelect.addEventListener('change', async (e) => {
             const newModel = e.target.value;
@@ -1083,7 +1129,27 @@ window.dbUtils = dbUtils;
             // updateUserModelOptions() が旧 additionalModels 設定を見て optgroup を
             // disabled にしたまま残すことがあるため、ここで明示的に有効/無効を再設定する。
             // （これをしないと、追加したモデルがグレーアウトして選択できない）
+            // ヘッダー常時表示のモデルは、追加モデル未記入でも選べるようにしておく
+            // （設定画面の一覧に無いと「選んだのに右上から消える」ため）
+            (ALWAYS_VISIBLE_HEADER_MODELS.openrouter || []).forEach((id) => {
+                const already =
+                    customGroup &&
+                    Array.from(customGroup.querySelectorAll('option')).some((o) => o.value === id);
+                if (customGroup && !already) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = `${id} (openrouter)`;
+                    opt.dataset.provider = 'openrouter';
+                    opt.dataset.userDefined = 'true';
+                    customGroup.appendChild(opt);
+                    addedCount++;
+                }
+            });
             if (customGroup) customGroup.disabled = addedCount === 0;
+            // 追加モデルの増減は右上の候補にも影響するので作り直す
+            if (window.appLogic && typeof window.appLogic.renderHeaderModelPins === 'function') {
+                window.appLogic.renderHeaderModelPins();
+            }
         };
 
         providers.forEach(prov => {

@@ -44,6 +44,11 @@ try {
         openrouterPrefsPresetQualityBtn: document.getElementById('openrouter-prefs-preset-quality'),
         openrouterPrefsPresetOrderBtn: document.getElementById('openrouter-prefs-preset-order'),
         openrouterPrefsPresetClearBtn: document.getElementById('openrouter-prefs-preset-clear'),
+        // ヘッダー（メイン画面右上）に出すモデルの選択
+        headerModelPinsContainer: document.getElementById('header-model-pins-container'),
+        headerModelPinsList: document.getElementById('header-model-pins-list'),
+        headerModelPinsStatus: document.getElementById('header-model-pins-status'),
+        headerModelPinsClearBtn: document.getElementById('header-model-pins-clear'),
         bedrockAccessKeyInput: document.getElementById('bedrock-access-key'),
         bedrockSecretKeyInput: document.getElementById('bedrock-secret-key'),
         bedrockRegionSelect: document.getElementById('bedrock-region'),

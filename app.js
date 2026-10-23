@@ -1606,6 +1606,11 @@ ${relationship_context}`;
       openrouterPrefsPresetQualityBtn: document.getElementById("openrouter-prefs-preset-quality"),
       openrouterPrefsPresetOrderBtn: document.getElementById("openrouter-prefs-preset-order"),
       openrouterPrefsPresetClearBtn: document.getElementById("openrouter-prefs-preset-clear"),
+      // ヘッダー（メイン画面右上）に出すモデルの選択
+      headerModelPinsContainer: document.getElementById("header-model-pins-container"),
+      headerModelPinsList: document.getElementById("header-model-pins-list"),
+      headerModelPinsStatus: document.getElementById("header-model-pins-status"),
+      headerModelPinsClearBtn: document.getElementById("header-model-pins-clear"),
       bedrockAccessKeyInput: document.getElementById("bedrock-access-key"),
       bedrockSecretKeyInput: document.getElementById("bedrock-secret-key"),
       bedrockRegionSelect: document.getElementById("bedrock-region"),
@@ -1899,12 +1904,15 @@ ${relationship_context}`;
   var IMPORT_PREFIX = "(取込) ";
   var LIGHT_THEME_COLOR = "#908675";
   var DARK_THEME_COLOR = "#908675";
-  var APP_VERSION = "1.25.76";
+  var APP_VERSION = "1.25.77";
   var DEFAULT_ZAI_MODEL = "glm-4.6";
   var DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4.1-fast";
   var OPENROUTER_PRESETS = [
     { value: "@preset/argon-flex", label: "Gemini 4 Argon (Flex) — @preset/argon-flex" }
   ];
+  var ALWAYS_VISIBLE_HEADER_MODELS = {
+    openrouter: ["deepseek/deepseek-v4-pro", "@preset/argon-flex"]
+  };
   var VERSION_NOTICE_SESSION_KEY = "pendingVersionNotice";
   var VERSION_ACK_STORAGE_KEY = "appVersionAcknowledged";
   var VERSION_LEGACY_STORAGE_KEY = "appVersion";
@@ -2092,6 +2100,11 @@ ${relationship_context}`;
   ];
   var DEFAULT_SAKANA_MODEL = "fugu";
   var VERSION_HISTORY = {
+    "1.77": [
+      "メイン画面右上のモデル選択を作り直しました。設定画面の「▼ メイン画面右上に表示するモデル」でチェックしたモデルだけが右上に出ます（全部チェック／未チェックなら従来どおり全表示）。API取得モデルを入れて選択肢が数百件になっているときでも、よく使うモデルだけを並べられます。",
+      "OpenRouter の「deepseek/deepseek-v4-pro」とプリセット「Gemini 4 Argon (Flex) — @preset/argon-flex」は、設定に関係なく右上に常時表示します。",
+      "チェックはプロバイダごとに保存され、プロファイルのエクスポートにも含まれます。設定の「すべて表示に戻す」で解除できます。"
+    ],
     "1.76": [
       "OpenRouter の「プロバイダー設定」を追加しました。リクエストの provider に、優先する提供元（order）、許可・除外する提供元（only / ignore）、量子化レベル（quantizations）などを指定できます。同じモデルでも提供元によって量子化が違い（fp8 / fp4 / int4 など）、粗い量子化の提供元に当たると出力品質が揺れるためです。設定は「設定 → OpenRouter」の「プロバイダー設定 (JSON)」に書きます。",
       "既定では「品質優先」（fp4 以下の量子化を除外し、deepseek / novita / deepinfra を優先）を入れてあります。チェックを外せば送信を止められ、ボタン1つで「順序のみ」「空にする」に切り替えられます。",
@@ -2591,6 +2604,9 @@ ${relationship_context}`;
       apiProvider: "gemini",
       apiKey: "",
       zaiApiKey: "",
+      // ヘッダーに表示するモデル（プロバイダ→モデルID配列）。
+      // 未設定/空 = そのプロバイダの全モデルを右上に出す（従来の挙動）。
+      headerModelPins: {},
       openrouterApiKey: "",
       // OpenRouter のプロバイダー設定（リクエストボディの provider オブジェクト）。
       // 既定は「品質優先」（fp4 以下の量子化を除外＋信頼できる提供元を優先）。
@@ -5488,6 +5504,9 @@ Reason: [NGの場合の理由]`,
         const element = elements[key + "Checkbox"] || elements[key + "Toggle"];
         if (element) settings[key] = element.checked;
       });
+      settings.headerModelPins = JSON.parse(
+        JSON.stringify(state.settings && state.settings.headerModelPins || {})
+      );
       console.log("[Profile] 現在のUIから設定を取得しました:", settings);
       return settings;
     },
@@ -5572,6 +5591,86 @@ Reason: [NGの場合の理由]`,
       reader.readAsText(file);
     }
   };
+
+  // src/utils/header-models.js
+  function normalizeModelIdList(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = /* @__PURE__ */ new Set();
+    const out = [];
+    value.forEach((item) => {
+      if (typeof item !== "string") return;
+      const id = item.trim();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      out.push(id);
+    });
+    return out;
+  }
+  __name(normalizeModelIdList, "normalizeModelIdList");
+  function resolveHeaderModelIds({ available = [], pins = [], alwaysInclude = [] } = {}) {
+    const avail = normalizeModelIdList(available);
+    const pinList = normalizeModelIdList(pins);
+    const always = normalizeModelIdList(alwaysInclude);
+    let ids = pinList.length === 0 ? avail.slice() : avail.filter((id) => pinList.includes(id));
+    if (ids.length === 0) ids = avail.slice();
+    always.forEach((id) => {
+      if (!ids.includes(id)) ids.push(id);
+    });
+    return ids;
+  }
+  __name(resolveHeaderModelIds, "resolveHeaderModelIds");
+  function normalizeHeaderModelPins(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+    const out = {};
+    Object.entries(raw).forEach(([provider, value]) => {
+      if (typeof provider !== "string" || !provider.trim()) return;
+      const ids = normalizeModelIdList(value);
+      if (ids.length > 0) out[provider.trim()] = ids;
+    });
+    return out;
+  }
+  __name(normalizeHeaderModelPins, "normalizeHeaderModelPins");
+  function getHeaderModelPins(pinsMap, provider) {
+    const normalized = normalizeHeaderModelPins(pinsMap);
+    return normalized[provider] || [];
+  }
+  __name(getHeaderModelPins, "getHeaderModelPins");
+  function filterHeaderOptionsHtml({
+    html = "",
+    pins = [],
+    alwaysInclude = [],
+    provider = "gemini",
+    labels = {}
+  } = {}) {
+    const box = document.createElement("div");
+    box.innerHTML = html;
+    const available = Array.from(box.querySelectorAll("option")).map((opt) => opt.value);
+    const keep = resolveHeaderModelIds({ available, pins, alwaysInclude });
+    const keepSet = new Set(keep);
+    Array.from(box.querySelectorAll("option")).forEach((opt) => {
+      if (!keepSet.has(opt.value)) opt.remove();
+    });
+    Array.from(box.querySelectorAll("optgroup")).forEach((group) => {
+      if (!group.querySelector("option")) group.remove();
+    });
+    const present = new Set(Array.from(box.querySelectorAll("option")).map((opt) => opt.value));
+    const missing = keep.filter((id) => !present.has(id));
+    if (missing.length > 0) {
+      const group = document.createElement("optgroup");
+      group.label = "常時表示";
+      missing.forEach((id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = labels[id] || id;
+        opt.dataset.provider = provider;
+        opt.dataset.userDefined = "true";
+        group.appendChild(opt);
+      });
+      box.appendChild(group);
+    }
+    return box.innerHTML;
+  }
+  __name(filterHeaderOptionsHtml, "filterHeaderOptionsHtml");
 
   // src/app-logic/lifecycle.js
   var lifecycleMethods = {
@@ -5774,6 +5873,87 @@ Reason: [NGの場合の理由]`,
         usageContainer.classList.add("hidden");
       }
     }, "updateApiUsageUI"),
+    // ---------------------------------------------------------------
+    // ヘッダー（メイン画面右上）に出すモデルの選択
+    // ---------------------------------------------------------------
+    // 設定画面のモデル一覧(#model-name)をそのままヘッダーへミラーすると、API取得モデルを
+    // 入れたときに数百件並んで選びにくい。ここでチェックさせたモデルだけをヘッダーに出す。
+    // 全部チェック／未チェック＝「絞り込みなし」として従来どおり全表示にする。
+    renderHeaderModelPins() {
+      const listEl = elements.headerModelPinsList;
+      if (!listEl) return;
+      const provider = state.settings.apiProvider || "gemini";
+      const select = elements.modelNameSelect;
+      const rows = [];
+      const seen = /* @__PURE__ */ new Set();
+      if (select) {
+        Array.from(select.querySelectorAll("option")).forEach((opt) => {
+          const id = opt.value;
+          if (!id || seen.has(id)) return;
+          seen.add(id);
+          rows.push({ id, label: opt.textContent || id });
+        });
+      }
+      const pins = getHeaderModelPins(state.settings.headerModelPins, provider);
+      listEl.textContent = "";
+      if (rows.length === 0) {
+        const empty = document.createElement("p");
+        empty.style.cssText = "font-size:11px;color:var(--text-secondary);margin:0;";
+        empty.textContent = "このプロバイダのモデル一覧をまだ読み込めていません。";
+        listEl.appendChild(empty);
+      }
+      rows.forEach(({ id, label }) => {
+        const row = document.createElement("label");
+        row.style.cssText = "display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = id;
+        cb.dataset.modelId = id;
+        cb.checked = pins.includes(id);
+        cb.addEventListener("change", () => this.saveHeaderModelPins());
+        const span = document.createElement("span");
+        span.textContent = label;
+        span.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+        row.appendChild(cb);
+        row.appendChild(span);
+        listEl.appendChild(row);
+      });
+      this.updateHeaderModelPinsStatus();
+    },
+    async saveHeaderModelPins() {
+      const listEl = elements.headerModelPinsList;
+      if (!listEl) return;
+      const provider = state.settings.apiProvider || "gemini";
+      const boxes = Array.from(listEl.querySelectorAll('input[type="checkbox"]'));
+      const checked = boxes.filter((cb) => cb.checked).map((cb) => cb.value);
+      const all = boxes.map((cb) => cb.value);
+      const pinsMap = normalizeHeaderModelPins(state.settings.headerModelPins);
+      if (checked.length === 0 || checked.length === all.length) {
+        delete pinsMap[provider];
+      } else {
+        pinsMap[provider] = checked;
+      }
+      state.settings.headerModelPins = pinsMap;
+      if (state.activeProfile) {
+        state.activeProfile.settings = state.activeProfile.settings || {};
+        state.activeProfile.settings.headerModelPins = pinsMap;
+        await dbUtils.updateProfile(state.activeProfile);
+      }
+      this.updateHeaderModelPinsStatus();
+      window.dispatchEvent(new CustomEvent("header-model-pins-changed"));
+    },
+    updateHeaderModelPinsStatus() {
+      const statusEl = elements.headerModelPinsStatus;
+      if (!statusEl) return;
+      const provider = state.settings.apiProvider || "gemini";
+      const pins = getHeaderModelPins(state.settings.headerModelPins, provider);
+      const always = (ALWAYS_VISIBLE_HEADER_MODELS || {})[provider] || [];
+      const parts = [
+        pins.length > 0 ? `右上には ${pins.length} 件を表示（＋常時表示）` : "右上には全モデルを表示中（絞り込みなし）"
+      ];
+      if (always.length > 0) parts.push(`常時表示: ${always.join(" / ")}`);
+      statusEl.textContent = parts.join(" ／ ");
+    },
     // OpenRouter のプロバイダー設定（JSON）の検証結果を設定画面に出す。
     // 不正な JSON でも保存自体はできる（打っている途中を弾かないため）が、
     // 送信時は「送らない」側に倒れるので、今の内容で実際に何が送られるかを常に見せる。
@@ -5915,6 +6095,7 @@ Reason: [NGの場合の理由]`,
         }
         uiUtils.updateModelWarningMessage();
         this.updateApiUsageUI();
+        this.renderHeaderModelPins();
         return;
       }
       const modelSelect = elements.modelNameSelect;
@@ -6035,6 +6216,7 @@ Reason: [NGの場合の理由]`,
       if (isFallback) state.settings.modelName = model;
       uiUtils.updateModelWarningMessage();
       this.updateApiUsageUI();
+      this.renderHeaderModelPins();
     },
     // アプリ初期化
     async initializeApp() {
@@ -15915,9 +16097,25 @@ ${summaryText}` : summaryText;
       const headerSelect = document.getElementById("header-model-select");
       const mainSelect = document.getElementById("model-name");
       if (!headerSelect || !mainSelect) return;
+      const buildHeaderHtml = /* @__PURE__ */ __name(() => {
+        const settings = window.state && window.state.settings || {};
+        const provider = settings.apiProvider || "gemini";
+        const labels = {};
+        OPENROUTER_PRESETS.forEach((preset) => {
+          labels[preset.value] = preset.label;
+        });
+        return filterHeaderOptionsHtml({
+          html: mainSelect.innerHTML,
+          pins: getHeaderModelPins(settings.headerModelPins, provider),
+          alwaysInclude: (ALWAYS_VISIBLE_HEADER_MODELS || {})[provider] || [],
+          provider,
+          labels
+        });
+      }, "buildHeaderHtml");
       const syncToHeader = /* @__PURE__ */ __name(() => {
-        if (mainSelect.innerHTML !== headerSelect.innerHTML) {
-          headerSelect.innerHTML = mainSelect.innerHTML;
+        const html = buildHeaderHtml();
+        if (headerSelect.innerHTML !== html) {
+          headerSelect.innerHTML = html;
         }
         if (window.state && window.state.settings && window.state.settings.modelName) {
           if (headerSelect.value !== window.state.settings.modelName) {
@@ -15930,6 +16128,28 @@ ${summaryText}` : summaryText;
       const observer = new MutationObserver(syncToHeader);
       observer.observe(mainSelect, { childList: true, subtree: true });
       setInterval(syncToHeader, 1e3);
+      window.addEventListener("header-model-pins-changed", syncToHeader);
+      const clearPinsBtn = document.getElementById("header-model-pins-clear");
+      if (clearPinsBtn) {
+        clearPinsBtn.addEventListener("click", async () => {
+          if (!window.state || !window.state.settings) return;
+          const provider = window.state.settings.apiProvider || "gemini";
+          const pinsMap = Object.assign({}, window.state.settings.headerModelPins || {});
+          delete pinsMap[provider];
+          window.state.settings.headerModelPins = pinsMap;
+          if (window.state.activeProfile) {
+            window.state.activeProfile.settings = window.state.activeProfile.settings || {};
+            window.state.activeProfile.settings.headerModelPins = pinsMap;
+            if (window.dbUtils && typeof window.dbUtils.updateProfile === "function") {
+              await window.dbUtils.updateProfile(window.state.activeProfile);
+            }
+          }
+          if (window.appLogic && typeof window.appLogic.renderHeaderModelPins === "function") {
+            window.appLogic.renderHeaderModelPins();
+          }
+          syncToHeader();
+        });
+      }
       headerSelect.addEventListener("change", async (e) => {
         const newModel = e.target.value;
         const selectedOpt = headerSelect.options[headerSelect.selectedIndex];
@@ -16670,7 +16890,22 @@ ${pageText}
             addedCount++;
           }
         });
+        (ALWAYS_VISIBLE_HEADER_MODELS.openrouter || []).forEach((id) => {
+          const already = customGroup && Array.from(customGroup.querySelectorAll("option")).some((o) => o.value === id);
+          if (customGroup && !already) {
+            const opt = document.createElement("option");
+            opt.value = id;
+            opt.textContent = `${id} (openrouter)`;
+            opt.dataset.provider = "openrouter";
+            opt.dataset.userDefined = "true";
+            customGroup.appendChild(opt);
+            addedCount++;
+          }
+        });
         if (customGroup) customGroup.disabled = addedCount === 0;
+        if (window.appLogic && typeof window.appLogic.renderHeaderModelPins === "function") {
+          window.appLogic.renderHeaderModelPins();
+        }
       }, "renderCustomModels");
       providers.forEach((prov) => {
         const textarea = document.getElementById(`${prov}-custom-models`);

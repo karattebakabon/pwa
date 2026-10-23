@@ -422,6 +422,12 @@ export const profileMethods = {
             if (element) settings[key] = element.checked;
         });
 
+        // ヘッダー（右上）に出すモデルはオブジェクト（プロバイダ→モデルID配列）なので個別に。
+        // これが無いとプロファイルのエクスポート/インポートで選択が消える。
+        settings.headerModelPins = JSON.parse(
+            JSON.stringify((state.settings && state.settings.headerModelPins) || {})
+        );
+
         console.log('[Profile] 現在のUIから設定を取得しました:', settings);
         return settings;
     },

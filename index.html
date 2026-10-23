@@ -35,7 +35,7 @@
                 console.error("AWS Bedrock Runtime SDKの読み込みに失敗しました:", err);
             });
     </script>
-    <script src="app.js?v=1.25.76" defer></script>
+    <script src="app.js?v=1.25.77" defer></script>
 </head>
 <body>
     <div class="app-container">
@@ -489,6 +489,21 @@
                                     ※ 入力候補は「🔄 全プロバイダーの最新モデルを取得」で読み込まれます（例: google/gemma-4-31b-it:free）。無料版はモデルIDの末尾が「:free」です。<br>
                                     ※ <code>@preset/&lt;名前&gt;</code> を入れると、OpenRouter の「プリセット」をモデルとして使えます（例: <code>@preset/argon-flex</code> ＝ Gemini 4 Argon の Flex 設定）。プリセットは OpenRouter で作成した、この API キーと同じアカウントのものだけが使えます。モデル選択の「追加モデル」にも並ぶので、普段はそちらから選べます。
                                 </p>
+                            </div>
+
+                            <!-- メイン画面右上（ヘッダー）に出すモデルを選ぶ。
+                                 API取得モデルを入れると選択肢が数百件になるため、ここで絞る。 -->
+                            <div id="header-model-pins-container" style="border-top: 1px dashed var(--border-color); margin-top: 15px; padding-top: 12px;">
+                                <label style="display:block;">▼ メイン画面右上に表示するモデル</label>
+                                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                                    チェックしたモデルだけが画面右上のメニューに出ます（全部チェック／未チェックなら従来どおり全表示）。<br>
+                                    プロバイダを切り替えると、そのプロバイダ用の一覧に変わります。
+                                </p>
+                                <div id="header-model-pins-list" style="max-height: 220px; overflow-y: auto; margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+                                <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                                    <button type="button" id="header-model-pins-clear" class="settings-reset-button">すべて表示に戻す</button>
+                                </div>
+                                <p id="header-model-pins-status" style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;"></p>
                             </div>
 
                             <p id="model-warning-message" class="hidden model-warning">
